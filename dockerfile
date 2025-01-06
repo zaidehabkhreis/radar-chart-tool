@@ -4,12 +4,13 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-# Install the required packages including gunicorn
+# Install the required packages including gunicorn and openpyxl
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copy only the necessary files and directories
+COPY . . 
 
 EXPOSE 8080
 
-# Start the Flask app using gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
+# Start the Flask app using gunicorn with the correct module path
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "Radar Charts.app:app"]
