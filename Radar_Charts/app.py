@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import json
 
-app = Flask(__name__, template_folder='templates')
+app = Flask(__name__)
 
 # Load the predefined spreadsheet
 file_path = 'data2.xlsx'  # Ensure data2.xlsx is in the same directory
