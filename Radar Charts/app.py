@@ -3,10 +3,10 @@ import pandas as pd
 import plotly.graph_objects as go
 import json
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 
 # Load the predefined spreadsheet
-file_path = 'data2.xlsx'  # Ensure data2.xlsx is in the same directory
+file_path = 'Radar Charts/data2.xlsx'  # Ensure data2.xlsx is in the same directory
 sheets = pd.ExcelFile(file_path)
 data_dict = {}
 
