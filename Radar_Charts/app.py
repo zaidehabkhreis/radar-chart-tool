@@ -2,13 +2,11 @@ from flask import Flask, render_template, request, redirect, url_for, make_respo
 import pandas as pd
 import plotly.graph_objects as go
 import json
-import os
 
 app = Flask(__name__)
 
 # Load the predefined spreadsheet
-base_path = os.path.dirname(__file__)
-file_path = os.path.join(base_path, "data2.xlsx")
+file_path = 'data3.xlsx'  # Ensure data2.xlsx is in the same directory
 sheets = pd.ExcelFile(file_path)
 data_dict = {}
 
@@ -17,6 +15,11 @@ pillar_avg_scores_dict = {}
 
 for sheet_name in sheets.sheet_names:
     data = sheets.parse(sheet_name)
+
+    if 'Utilization' in data.columns:
+        if data['Utilization'].dtype == 'object':
+            data['Utilization'] = data['Utilization'].str.replace('%', '').astype(float)
+
     data_dict[sheet_name] = data
 
     if 'Pillar' in data.columns and 'Score' in data.columns:
@@ -106,7 +109,7 @@ def filter_data(data, applied_filters):
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    search_name = request.args.get('search_name', '')
+    search_name = request.args.get('search_name', '').lower()  # Convert search input to lowercase
     remove_filter = request.args.get('remove_filter', None)
 
     # Get filters from cookies
@@ -140,31 +143,32 @@ def index():
         return response
 
     # Filter data based on applied filters
-    filtered_data_dict = filter_data(data_dict, applied_filters)
+    filtered_data_dict = filter_data(data_dict, applied_filters)  # Get the filtered dictionary
 
-    # Only include sheets with valid, non-empty data
-    sheets_to_display = {
-        sheet_name: data
-        for sheet_name, data in filtered_data_dict.items()
-        if isinstance(data, pd.DataFrame) and not data.empty and 'Pillar' in data.columns and 'Score' in data.columns
-    }
+    # Remove sheets that do not comply with filters
+    sheets_to_display = [sheet_name for sheet_name, data in filtered_data_dict.items() if not data.empty]
 
-    # If a search_name exists, filter only matching sheet names
+    # If a search_name exists, filter only for the exact name
     if search_name:
-        matching_sheets = {
-            sheet_name: data
-            for sheet_name, data in sheets_to_display.items()
-            if search_name.lower() in sheet_name.lower()
-        }
-        sheets_to_display = matching_sheets
+        matching_sheets = [
+            sheet for sheet in sheets_to_display
+            if sheet.lower() == search_name  # Ensure case-insensitive exact match
+        ]
+        sheets_to_display = matching_sheets  # Show only the sheets that match the search_name
 
+    # Pass only the sheets that comply with filters or search_name to the template
     return render_template(
         'index.html',
         pillars=unique_pillars,
         sheets_to_display=sheets_to_display,
         applied_filters=applied_filters,
+        data_dict=data_dict,
         search_name=search_name
     )
+
+
+
+
 
 
 @app.route('/chart/<sheet_name>')
@@ -254,6 +258,33 @@ def generate_chart(sheet_name):
         hoverinfo='text',
         text=hover_data
     ))
+
+        # Extract the utilization value from the first row
+    utilization = (data.loc[0, 'Utilization'] if not data.empty and 'Utilization' in data.columns else 0)*100
+    utilization_color = 'green' if utilization >= 75 else 'yellow' if utilization >= 50 else 'red'
+
+    # Add utilization bar under the chart
+    fig.add_annotation(
+        x=0.5,
+        y=-0.2,
+        text=f"Utilization: {utilization}%",
+        showarrow=False,
+        font=dict(color=utilization_color, size=12),
+        xref="paper",
+        yref="paper"
+    )
+
+    fig.add_shape(
+        type="rect",
+        x0=0.25,
+        x1=0.75,
+        y0=-0.3,
+        y1=-0.25,
+        fillcolor=utilization_color,
+        line=dict(width=0),
+        xref="paper",
+        yref="paper"
+    )
 
     fig.update_layout(
         polar=dict(

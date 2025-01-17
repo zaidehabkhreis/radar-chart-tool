@@ -52,7 +52,7 @@
             background: #f9f9f9;
             border-radius: 8px;
             text-align: center;
-            flex: 0 1 calc(50% - 20px); /* Ensures 2 charts per row */
+            flex: 0 1 calc(50% - 20px);
             box-sizing: border-box;
         }
 
@@ -66,10 +66,72 @@
             font-weight: bold;
         }
 
-        .applied-filters {
-            border: 1px solid #ddd;
-            padding: 10px;
-            margin-bottom: 20px;
+        .utilization-bar {
+            height: 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background-color: #ddd;
+            position: relative;
+        }
+
+        .utilization-bar .fill {
+            height: 100%;
+            border-radius: 5px;
+        }
+
+        /* Scrollable Popup Styles */
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            max-height: 300px;
+            overflow-y: auto;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            z-index: 1000;
+        }
+
+        .popup .close-btn {
+            display: block;
+            text-align: right;
+            font-size: 24px;
+            color: #333;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .popup .popup-title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+
+        .popup ul {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+
+        .popup ul li {
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
         }
 
         button {
@@ -110,7 +172,6 @@
             margin-left: 5px;
             color: red;
         }
-        
     </style>
 </head>
 <body>
@@ -161,11 +222,26 @@
 
         <div class="charts">
             {% if sheets_to_display %}
-                {% for sheet_name, data in sheets_to_display.items() %}
+                {% for sheet_name in sheets_to_display %}
+                    {% set data = data_dict.get(sheet_name, None) %}
                     {% if data is not none and data|length > 0 %}
                         <div class="chart">
                             <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0"></iframe>
                             <p>{{ sheet_name }}</p>
+
+                            <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
+
+                            <div id="popup-{{ sheet_name }}" class="popup">
+                                <span class="close-btn" onclick="closePopup('{{ sheet_name }}')">×</span>
+                                <div class="popup-title">Engagements for {{ sheet_name }}</div>
+                                <ul>
+                                    {% if 'Engagements' in data.columns and not data['Engagements'].isnull().all() %}
+                                        {% for engagement in data['Engagements'] %}
+                                            <li>{{ engagement }}</li>
+                                        {% endfor %}
+                                    {% endif %}
+                                </ul>
+                            </div>
                         </div>
                     {% endif %}
                 {% endfor %}
@@ -173,22 +249,32 @@
                 <p>No charts available for the selected criteria.</p>
             {% endif %}
         </div>
-        
-        
-        
 
-    <script>
-        function removeFilter(filter) {
-            const url = new URL(window.location.href);
-            url.searchParams.append('remove_filter', filter);
-            window.location.href = url.toString();
-        }
-    </script>
+        <div id="overlay" class="overlay"></div>
+
+        <script>
+            function openPopup(sheetName) {
+                document.getElementById(`popup-${sheetName}`).style.display = 'block';
+                document.getElementById('overlay').style.display = 'block';
+            }
+
+            function closePopup(sheetName) {
+                document.getElementById(`popup-${sheetName}`).style.display = 'none';
+                document.getElementById('overlay').style.display = 'none';
+            }
+
+            function removeFilter(filter) {
+                const url = new URL(window.location.href);
+                url.searchParams.append('remove_filter', filter);
+                window.location.href = url.toString();
+            }
+        </script>
+    </div>
 
 
     <script>
         // Wait for the DOM to load
-        document.addEventListener("DOMContentLoaded", () => {
+            document.addEventListener("DOMContentLoaded", () => {
             // Select all chart containers
             const chartContainers = document.querySelectorAll(".chart");
 
@@ -211,6 +297,5 @@
             });
         });
     </script>
-
 </body>
 </html>
