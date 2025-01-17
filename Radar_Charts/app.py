@@ -6,7 +6,8 @@ import json
 app = Flask(__name__)
 
 # Load the predefined spreadsheet
-file_path = 'data3.xlsx'  # Ensure data2.xlsx is in the same directory
+base_path = os.path.dirname(__file__)
+file_path = os.path.join(base_path, "data2.xlsx")
 sheets = pd.ExcelFile(file_path)
 data_dict = {}
 
