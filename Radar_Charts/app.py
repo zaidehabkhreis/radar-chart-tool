@@ -241,7 +241,7 @@ def generate_chart(sheet_name):
     categories.append(categories[0])
     values.append(values[0])
 
-        # Add all individual scores to hover data
+    # Add all individual scores to hover data
     hover_data = []
     for pillar in categories:
         pillar_data = data[data['Pillar'] == pillar]
@@ -261,9 +261,16 @@ def generate_chart(sheet_name):
         text=hover_data
     ))
 
-        # Extract the utilization value from the first row
-    utilization = (data.loc[0, 'Utilization'] if not data.empty and 'Utilization' in data.columns else 0)*100
-    utilization_color = 'green' if utilization >= 75 else 'yellow' if utilization >= 50 else 'red'
+    # Extract the utilization value from the first row
+    utilization = (data.loc[0, 'Utilization'] if not data.empty and 'Utilization' in data.columns else 0) *100
+    if utilization <= 50:
+        utilization_color = '#6EC664'  # Neutral green
+    elif utilization <= 80:
+        utilization_color = '#FFCB6B'  # Neutral yellow
+    elif utilization <= 95:
+        utilization_color = '#DC7633'  # Neutral orange
+    else:
+        utilization_color = '#E74C3C'  # Neutral red
 
     # Add utilization bar under the chart
     fig.add_annotation(
