@@ -228,15 +228,27 @@
                         <div class="chart">
                             <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0"></iframe>
                             <p>{{ sheet_name }}</p>
-
+        
                             <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
-
+        
                             <div id="popup-{{ sheet_name }}" class="popup">
                                 <span class="close-btn" onclick="closePopup('{{ sheet_name }}')">×</span>
                                 <div class="popup-title">Engagements for {{ sheet_name }}</div>
                                 <ul>
                                     {% if 'Engagements' in data.columns and not data['Engagements'].isnull().all() %}
-                                        {% for engagement in data['Engagements'] %}
+                                        {% set all_engagements = [] %}
+                                        {% for engagement_list in data['Engagements'] %}
+                                            {% if engagement_list and engagement_list is string %}
+                                                {% set engagements = engagement_list.split(',') %}
+                                                {% for engagement in engagements %}
+                                                    {% set engagement_cleaned = engagement.strip() %}
+                                                    {% if engagement_cleaned not in all_engagements %}
+                                                        {% set _ = all_engagements.append(engagement_cleaned) %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% for engagement in all_engagements %}
                                             <li>{{ engagement }}</li>
                                         {% endfor %}
                                     {% endif %}
@@ -249,6 +261,8 @@
                 <p>No charts available for the selected criteria.</p>
             {% endif %}
         </div>
+        
+        
 
         <div id="overlay" class="overlay"></div>
 
