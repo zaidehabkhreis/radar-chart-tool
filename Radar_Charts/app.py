@@ -8,7 +8,8 @@ app = Flask(__name__)
 
 
 # Load predefined users from JSON file
-USERS_FILE = "users.json"
+base = os.path.dirname(__file__)
+USERS_FILE = os.path.join(base, "users.json")
 with open(USERS_FILE, "r") as file:
     users_data = json.load(file)
 VALID_USERS = {user["email"]: user["password"] for user in users_data["users"]}
