@@ -3,16 +3,20 @@ import pandas as pd
 import plotly.graph_objects as go
 import json
 import os
+import base64
 
 app = Flask(__name__)
 
 
 # Load predefined users from JSON file
-base = os.path.dirname(__file__)
-USERS_FILE = os.path.join(base, "users.json")
-with open(USERS_FILE, "r") as file:
-    users_data = json.load(file)
-VALID_USERS = {user["email"]: user["password"] for user in users_data["users"]}
+users_json_env = os.getenv("USERS_JSON")
+
+if users_json_env:
+    users_data = json.loads(base64.b64decode(users_json_env).decode())
+    VALID_USERS = {user["email"]: user["password"] for user in users_data["users"]}
+else:
+    raise Exception("USERS_JSON environment variable is missing")
+
 
 # Load the predefined spreadsheet
 base_path = os.path.dirname(__file__)
