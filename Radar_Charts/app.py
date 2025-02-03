@@ -9,7 +9,16 @@ app = Flask(__name__)
 
 
 # Load predefined users from JSON file
-VALID_USERS = os.getenv("USERS_JSON")
+users_json_env = os.getenv("USERS_JSON")
+
+if users_json_env:
+    try:
+        users_data = json.loads(users_json_env)  # Convert JSON string to Python dict
+        VALID_USERS = {user["email"]: user["password"] for user in users_data["users"]}
+    except json.JSONDecodeError:
+        raise Exception("Failed to parse USERS_JSON environment variable")
+else:
+    raise Exception("USERS_JSON environment variable is missing")
 
 # Load the predefined spreadsheet
 base_path = os.path.dirname(__file__)
