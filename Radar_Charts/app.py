@@ -6,11 +6,56 @@ import os
 
 app = Flask(__name__)
 
+
+# Load predefined users from JSON file
+USERS_FILE = "users.json"
+with open(USERS_FILE, "r") as file:
+    users_data = json.load(file)
+VALID_USERS = {user["email"]: user["password"] for user in users_data["users"]}
+
 # Load the predefined spreadsheet
 base_path = os.path.dirname(__file__)
-file_path = os.path.join(base_path, "data3.xlsx")
+file_path = os.path.join(base_path, "data.xlsx")
 sheets = pd.ExcelFile(file_path)
 data_dict = {}
+
+for sheet_name in sheets.sheet_names:
+    data_dict[sheet_name] = sheets.parse(sheet_name)
+
+# Authentication Middleware
+def get_authenticated_user(request):
+    """Check if the user is authenticated via cookies."""
+    email = request.cookies.get("user_email")
+    password = request.cookies.get("user_password")
+
+    if email in VALID_USERS and VALID_USERS[email] == password:
+        return email
+    return None
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        # Check credentials
+        if email in VALID_USERS and VALID_USERS[email] == password:
+            response = make_response(redirect(url_for('index')))
+            response.set_cookie("user_email", email)
+            response.set_cookie("user_password", password)
+            return response
+        else:
+            return render_template("login.html", error="Invalid email or password")
+
+    return render_template("login.html")
+
+@app.route('/logout')
+def logout():
+    """Logout user by clearing cookies."""
+    response = make_response(redirect(url_for('login')))
+    response.delete_cookie("user_email")
+    response.delete_cookie("user_password")
+    return response
 
 # Store the unique pillars and their average scores for each sheet
 pillar_avg_scores_dict = {}
@@ -111,6 +156,10 @@ def filter_data(data, applied_filters):
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    user = get_authenticated_user(request)
+    if not user:
+        return redirect(url_for('login'))
+    
     search_name = request.args.get('search_name', '').lower()  # Convert search input to lowercase
     remove_filter = request.args.get('remove_filter', None)
 
@@ -165,7 +214,8 @@ def index():
         sheets_to_display=sheets_to_display,
         applied_filters=applied_filters,
         data_dict=data_dict,
-        search_name=search_name
+        search_name=search_name,
+        user=user
     )
 
 
@@ -175,6 +225,10 @@ def index():
 
 @app.route('/chart/<sheet_name>')
 def generate_chart(sheet_name):
+        
+    user = get_authenticated_user(request)
+    if not user:
+        return redirect(url_for('login'))
     # Get filters from cookies
     applied_filters = get_applied_filters(request)
 
