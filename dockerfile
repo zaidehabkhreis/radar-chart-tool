@@ -13,4 +13,4 @@ COPY . .
 EXPOSE 8080
 
 # Start the Flask app using gunicorn with the correct module path
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "Radar_Charts.app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
