@@ -398,7 +398,7 @@
 
 
 
-from flask import Flask, render_template, request, redirect, url_for, make_response
+from flask import Flask, render_template, request, redirect, url_for, make_response, jsonify
 import pandas as pd
 import plotly.graph_objects as go
 import json
@@ -407,6 +407,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
 import io
+import time
 
 
 app = Flask(__name__)
@@ -425,14 +426,6 @@ else:
     raise Exception("USERS_JSON environment variable is missing")
 
 
-
-
-
-
-
-
-# Load the predefined spreadsheet
-# Google Drive File ID of `data.xlsx` (get it from the URL)
 DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
 
 service_account_json = os.getenv("SERVICE_ACCOUNT")
@@ -450,8 +443,23 @@ except json.JSONDecodeError:
 # Authenticate with Google Drive API
 drive_service = build("drive", "v3", credentials=credentials)
 
+
+# Cache system to avoid redundant API calls
+last_fetched_time = 0
+data_dict = {}
+
+
+
+
 def fetch_latest_excel():
-    """Download the latest `data.xlsx` from Google Drive."""
+    """Download the latest `data.xlsx` from Google Drive if it has changed."""
+    global last_fetched_time, data_dict
+
+    # Avoid frequent API calls
+    current_time = time.time()
+    if current_time - last_fetched_time < 30:  # Refresh every 30 seconds
+        return data_dict
+
     request = drive_service.files().get_media(fileId=DRIVE_FILE_ID)
     file_stream = io.BytesIO()
     downloader = MediaIoBaseDownload(file_stream, request)
@@ -460,7 +468,10 @@ def fetch_latest_excel():
         _, done = downloader.next_chunk()
 
     file_stream.seek(0)
-    return pd.ExcelFile(file_stream)
+    sheets = pd.ExcelFile(file_stream)
+    data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
+    last_fetched_time = current_time
+    return data_dict
 
 # Load spreadsheet from Google Drive
 sheets = fetch_latest_excel()
@@ -471,10 +482,9 @@ data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet
 
 @app.before_request
 def update_data():
-    """Check if data.xlsx has changed and reload it."""
-    global sheets, data_dict
-    sheets = fetch_latest_excel()
-    data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
+    """Ensure we have the latest spreadsheet data before processing requests."""
+    global data_dict
+    data_dict = fetch_latest_excel()
 
 
 

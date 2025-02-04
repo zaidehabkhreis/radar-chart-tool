@@ -299,7 +299,7 @@
 
         <div id="overlay" class="overlay"></div>
 
-        <script>
+        <!-- <script>
             function openPopup(sheetName) {
                 document.getElementById(`popup-${sheetName}`).style.display = 'block';
                 document.getElementById('overlay').style.display = 'block';
@@ -315,32 +315,46 @@
                 url.searchParams.append('remove_filter', filter);
                 window.location.href = url.toString();
             }
-        </script>
+        </script> -->
     </div>
 
 
     <script>
-        // Wait for the DOM to load
-            document.addEventListener("DOMContentLoaded", () => {
-            // Select all chart containers
-            const chartContainers = document.querySelectorAll(".chart");
+        document.getElementById("filter-form").addEventListener("submit", function(event) {
+            event.preventDefault();
+            let filters = [];
 
-            // Loop through each container
-            chartContainers.forEach(container => {
-                const iframe = container.querySelector("iframe");
+            let pillar = document.getElementById("filter_pillar").value;
+            let operator = document.getElementById("filter_operator").value;
+            let value = document.getElementById("filter_value").value;
 
-                // Check if iframe content has "No data available for the selected filters."
-                if (iframe) {
-                    iframe.onload = () => {
-                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                        const iframeBodyText = iframeDoc.body?.textContent || "";
+            if (pillar && operator && value) {
+                filters.push(`Pillar: ${pillar} ${operator} ${value}`);
+            }
 
-                        // If the text contains the undesired phrase, remove the container
-                        if (iframeBodyText.includes("No data available for the selected filters.")) {
-                            container.remove();
-                        }
-                    };
-                }
+            fetch("/apply-filters", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filters })
+            }).then(() => location.reload());
+        });
+
+        function removeFilter(filter) {
+            fetch("/apply-filters", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filters: [] })
+            }).then(() => location.reload());
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll(".chart iframe").forEach(iframe => {
+                iframe.onload = () => {
+                    let iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (iframeDoc.body.innerHTML.includes("No data available for the selected filters.")) {
+                        iframe.parentElement.remove();
+                    }
+                };
             });
         });
     </script>
