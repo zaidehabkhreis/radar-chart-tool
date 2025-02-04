@@ -424,39 +424,97 @@ if users_json_env:
 else:
     raise Exception("USERS_JSON environment variable is missing")
 
-# Load the predefined spreadsheet
-# Google Drive File ID of `data.xlsx` (get it from the URL)
+# Google Drive File ID of `data.xlsx`
 DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
 
-# Path to service account JSON key file (Ensure this is set in Cloud Run)
+# Load credentials
 service_account_json = os.getenv("SERVICE_ACCOUNT")
 
 if service_account_json:
-    credentials_dict = json.loads(service_account_json)  # Convert string to dict
+    credentials_dict = json.loads(service_account_json)
     credentials = service_account.Credentials.from_service_account_info(credentials_dict)
 else:
     raise Exception("Missing SERVICE_ACCOUNT environment variable")
 
 drive_service = build("drive", "v3", credentials=credentials)
 
-def fetch_latest_excel():
-    """Download the latest `data.xlsx` from Google Drive."""
-    request = drive_service.files().get_media(fileId=DRIVE_FILE_ID)
-    file_stream = io.BytesIO()
-    downloader = MediaIoBaseDownload(file_stream, request)
-    done = False
-    while not done:
-        _, done = downloader.next_chunk()
-
-    file_stream.seek(0)
-    return pd.ExcelFile(file_stream)
-
-# Load spreadsheet from Google Drive
-sheets = fetch_latest_excel()
-data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
+# Global variables
+data_dict = {}
+pillar_avg_scores_dict = {}
+latest_file_timestamp = None  # Track the last modified time
 
 
-# Authentication Middleware
+def get_drive_file_metadata():
+    """Retrieve file metadata (including last modified time) from Google Drive."""
+    file_metadata = drive_service.files().get(fileId=DRIVE_FILE_ID, fields="modifiedTime").execute()
+    return file_metadata["modifiedTime"]
+
+
+def fetch_latest_excel(force_update=False):
+    """Download the latest `data.xlsx` from Google Drive only if it has changed and return the sheets."""
+    global latest_file_timestamp, data_dict, pillar_avg_scores_dict
+
+    try:
+        new_timestamp = get_drive_file_metadata()
+        if not force_update and latest_file_timestamp == new_timestamp:
+            print("No changes detected in the spreadsheet.")
+            return None  # No need to reload data
+
+        print("Changes detected! Updating data...")
+        latest_file_timestamp = new_timestamp  # Update timestamp
+
+        # Fetch the latest spreadsheet
+        request = drive_service.files().get_media(fileId=DRIVE_FILE_ID)
+        file_stream = io.BytesIO()
+        downloader = MediaIoBaseDownload(file_stream, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+
+        file_stream.seek(0)
+        sheets = pd.ExcelFile(file_stream)
+
+        # Update global data dictionary
+        data_dict.clear()
+        pillar_avg_scores_dict.clear()
+
+        for sheet_name in sheets.sheet_names:
+            data = sheets.parse(sheet_name)
+
+            if "Utilization" in data.columns and data["Utilization"].dtype == "object":
+                data["Utilization"] = data["Utilization"].str.replace("%", "").astype(float)
+
+            data_dict[sheet_name] = data
+
+            if "Pillar" in data.columns and "Score" in data.columns:
+                avg_scores = data.groupby("Pillar")["Score"].mean().round(1).reset_index()
+                pillar_avg_scores_dict[sheet_name] = avg_scores
+
+        print("Data successfully updated from Google Drive.")
+        return sheets  # Return the loaded Excel file
+
+    except Exception as e:
+        print(f"Error fetching spreadsheet: {e}")
+        return None  # Return None if an error occurs
+
+
+@app.before_request
+def check_for_updates():
+    """Check for updates before handling any request."""
+    fetch_latest_excel()
+
+
+
+# Load spreadsheet from Google Drive (ensure it is not None)
+sheets = fetch_latest_excel(force_update=True)
+
+# Only update data_dict if sheets is valid (i.e., not None)
+if sheets:
+    data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
+else:
+    data_dict = {}  # Ensure data_dict is always defined
+
+
 def get_authenticated_user(request):
     """Check if the user is authenticated via cookies."""
     email = request.cookies.get("user_email")
@@ -466,15 +524,15 @@ def get_authenticated_user(request):
         return email
     return None
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
 
-        # Check credentials
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+
         if email in VALID_USERS and VALID_USERS[email] == password:
-            response = make_response(redirect(url_for('index')))
+            response = make_response(redirect(url_for("index")))
             response.set_cookie("user_email", email)
             response.set_cookie("user_password", password)
             return response
@@ -483,13 +541,18 @@ def login():
 
     return render_template("login.html")
 
-@app.route('/logout')
+
+@app.route("/logout")
 def logout():
     """Logout user by clearing cookies."""
-    response = make_response(redirect(url_for('login')))
+    response = make_response(redirect(url_for("login")))
     response.delete_cookie("user_email")
     response.delete_cookie("user_password")
     return response
+
+
+
+
 
 # Store the unique pillars and their average scores for each sheet
 pillar_avg_scores_dict = {}
