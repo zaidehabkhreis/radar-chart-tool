@@ -435,15 +435,19 @@ else:
 # Google Drive File ID of `data.xlsx` (get it from the URL)
 DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
 
-# Path to service account JSON key file (Ensure this is set in Cloud Run)
 service_account_json = os.getenv("SERVICE_ACCOUNT")
-
-if service_account_json:
-    credentials_dict = json.loads(service_account_json)  # Convert string to dict
-    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
-else:
+if not service_account_json:
     raise Exception("Missing SERVICE_ACCOUNT environment variable")
 
+try:
+    credentials_dict = json.loads(service_account_json)  # Convert string to dict
+    credentials = service_account.Credentials.from_service_account_info(
+        credentials_dict, scopes=["https://www.googleapis.com/auth/drive"]
+    )
+except json.JSONDecodeError:
+    raise Exception("Failed to parse SERVICE_ACCOUNT JSON")
+
+# Authenticate with Google Drive API
 drive_service = build("drive", "v3", credentials=credentials)
 
 def fetch_latest_excel():
