@@ -7,6 +7,9 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
 import io
+import time
+import hashlib
+
 
 
 app = Flask(__name__)
@@ -39,22 +42,67 @@ else:
 
 drive_service = build("drive", "v3", credentials=credentials)
 
-def fetch_latest_excel():
-    """Download the latest data.xlsx from Google Drive."""
+# Global variables to track the latest hash and sheets
+data_dict = {}
+pillar_avg_scores_dict = {}
+latest_hash = None
+last_checked_time = 0
+CHECK_INTERVAL = 60  # Check for updates every 60 seconds
+
+def calculate_file_hash(file_stream):
+    """Compute the hash of the file to detect changes."""
+    file_stream.seek(0)
+    hasher = hashlib.md5()
+    while chunk := file_stream.read(8192):
+        hasher.update(chunk)
+    return hasher.hexdigest()
+
+def fetch_latest_excel_if_updated():
+    """Fetch the latest spreadsheet from Google Drive only if an update exists."""
+    global latest_hash, data_dict, pillar_avg_scores_dict, last_checked_time
+    
+    current_time = time.time()
+    if current_time - last_checked_time < CHECK_INTERVAL:
+        return  # Skip checking if within the interval
+    
+    last_checked_time = current_time  # Update the last checked time
+    
     request = drive_service.files().get_media(fileId=DRIVE_FILE_ID)
     file_stream = io.BytesIO()
     downloader = MediaIoBaseDownload(file_stream, request)
     done = False
     while not done:
         _, done = downloader.next_chunk()
-
+    
+    new_hash = calculate_file_hash(file_stream)
+    
+    if new_hash == latest_hash:
+        return  # No changes detected, skip reloading
+    
+    latest_hash = new_hash  # Update the stored hash
     file_stream.seek(0)
-    return pd.ExcelFile(file_stream)
+    sheets = pd.ExcelFile(file_stream)
+    
+    # Load the updated data
+    new_data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
+    new_pillar_avg_scores_dict = {}
+    
+    for sheet_name, data in new_data_dict.items():
+        if 'Utilization' in data.columns and data['Utilization'].dtype == 'object':
+            data['Utilization'] = data['Utilization'].str.replace('%', '').astype(float)
+        
+        if 'Pillar' in data.columns and 'Score' in data.columns:
+            avg_scores = data.groupby('Pillar')['Score'].mean().round(1).reset_index()
+            new_pillar_avg_scores_dict[sheet_name] = avg_scores
+    
+    # Update global variables only after successful loading
+    data_dict = new_data_dict
+    pillar_avg_scores_dict = new_pillar_avg_scores_dict
 
-# Load spreadsheet from Google Drive
-sheets = fetch_latest_excel()
-data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
-
+@app.before_request
+def check_for_updates():
+    """Check for spreadsheet updates before handling any request."""
+    fetch_latest_excel_if_updated()
 
 # Authentication Middleware
 def get_authenticated_user(request):
@@ -90,23 +138,6 @@ def logout():
     response.delete_cookie("user_email")
     response.delete_cookie("user_password")
     return response
-
-# Store the unique pillars and their average scores for each sheet
-pillar_avg_scores_dict = {}
-
-for sheet_name in sheets.sheet_names:
-    data = sheets.parse(sheet_name)
-
-    if 'Utilization' in data.columns:
-        if data['Utilization'].dtype == 'object':
-            data['Utilization'] = data['Utilization'].str.replace('%', '').astype(float)
-
-    data_dict[sheet_name] = data
-
-    if 'Pillar' in data.columns and 'Score' in data.columns:
-        avg_scores = data.groupby('Pillar')['Score'].mean().round(1).reset_index()
-        pillar_avg_scores_dict[sheet_name] = avg_scores
-
 
 # Get unique pillars for the filter dropdown
 all_pillars = []
