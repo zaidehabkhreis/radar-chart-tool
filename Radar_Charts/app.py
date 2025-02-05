@@ -59,7 +59,7 @@ def calculate_file_hash(file_stream):
 
 def fetch_latest_excel_if_updated():
     """Fetch the latest spreadsheet from Google Drive only if an update exists."""
-    global latest_hash, data_dict, pillar_avg_scores_dict, last_checked_time
+    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
     
     current_time = time.time()
     if current_time - last_checked_time < CHECK_INTERVAL:
@@ -142,13 +142,6 @@ def logout():
     response.delete_cookie("user_email")
     response.delete_cookie("user_password")
     return response
-
-# Get unique pillars for the filter dropdown
-all_pillars = []
-for sheet_name, data in data_dict.items():
-    if 'Pillar' in data.columns:
-        all_pillars.extend(data['Pillar'].unique())
-unique_pillars = sorted(set(all_pillars))
 
 def get_applied_filters(request):
     """Retrieve filters from cookies"""
