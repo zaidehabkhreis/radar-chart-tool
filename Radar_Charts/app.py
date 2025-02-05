@@ -874,35 +874,63 @@ import io
 app = Flask(__name__)
 
 
+from flask import Flask, render_template, request, redirect, url_for, make_response
+import pandas as pd
+import plotly.graph_objects as go
+import json
+import os
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+from google.oauth2 import service_account
+import io
+
+app = Flask(__name__)
+
 # Load predefined users from JSON file
 users_json_env = os.getenv("USERS_JSON")
 
 if users_json_env:
     try:
-        users_data = json.loads(users_json_env)  # Convert JSON string to Python dict
+        users_data = json.loads(users_json_env)
         VALID_USERS = {user["email"]: user["password"] for user in users_data["users"]}
     except json.JSONDecodeError:
         raise Exception("Failed to parse USERS_JSON environment variable")
 else:
     raise Exception("USERS_JSON environment variable is missing")
 
-# Load the predefined spreadsheet
-# Google Drive File ID of data.xlsx (get it from the URL)
+# Google Drive File ID of data.xlsx
 DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
 
-# Path to service account JSON key file (Ensure this is set in Cloud Run)
+# Path to service account JSON key file
 service_account_json = os.getenv("SERVICE_ACCOUNT")
 
 if service_account_json:
-    credentials_dict = json.loads(service_account_json)  # Convert string to dict
+    credentials_dict = json.loads(service_account_json)
     credentials = service_account.Credentials.from_service_account_info(credentials_dict)
 else:
     raise Exception("Missing SERVICE_ACCOUNT environment variable")
 
 drive_service = build("drive", "v3", credentials=credentials)
 
+# Cache for storing last modified timestamp and data
+last_modified_time = None
+sheets_data = None
+pillar_avg_scores_dict = {}
+
+def get_drive_file_modified_time():
+    """Fetch the last modified time of the spreadsheet."""
+    file_metadata = drive_service.files().get(fileId=DRIVE_FILE_ID, fields="modifiedTime").execute()
+    return file_metadata.get("modifiedTime")
+
 def fetch_latest_excel():
     """Download the latest data.xlsx from Google Drive."""
+    global last_modified_time, sheets_data, pillar_avg_scores_dict
+    
+    current_modified_time = get_drive_file_modified_time()
+    
+    if current_modified_time == last_modified_time and sheets_data:
+        return sheets_data  # Return cached data if the file hasn't changed
+    
     request = drive_service.files().get_media(fileId=DRIVE_FILE_ID)
     file_stream = io.BytesIO()
     downloader = MediaIoBaseDownload(file_stream, request)
@@ -911,14 +939,26 @@ def fetch_latest_excel():
         _, done = downloader.next_chunk()
 
     file_stream.seek(0)
-    return pd.ExcelFile(file_stream)
+    sheets = pd.ExcelFile(file_stream)
+    sheets_data = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
+    last_modified_time = current_modified_time  # Update last modified timestamp
+    
+    # Compute pillar average scores for filtering
+    pillar_avg_scores_dict.clear()
+    for sheet_name, data in sheets_data.items():
+        if 'Utilization' in data.columns:
+            if data['Utilization'].dtype == 'object':
+                data['Utilization'] = data['Utilization'].str.replace('%', '').astype(float)
 
-# Load spreadsheet from Google Drive
-sheets = fetch_latest_excel()
-data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
+        if 'Pillar' in data.columns and 'Score' in data.columns:
+            avg_scores = data.groupby('Pillar')['Score'].mean().round(1).reset_index()
+            pillar_avg_scores_dict[sheet_name] = avg_scores
 
+    return sheets_data
 
-# Authentication Middleware
+# Load initial spreadsheet data
+sheets_data = fetch_latest_excel()
+
 def get_authenticated_user(request):
     """Check if the user is authenticated via cookies."""
     email = request.cookies.get("user_email")
@@ -934,7 +974,6 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
 
-        # Check credentials
         if email in VALID_USERS and VALID_USERS[email] == password:
             response = make_response(redirect(url_for('index')))
             response.set_cookie("user_email", email)
@@ -947,11 +986,15 @@ def login():
 
 @app.route('/logout')
 def logout():
-    """Logout user by clearing cookies."""
     response = make_response(redirect(url_for('login')))
     response.delete_cookie("user_email")
     response.delete_cookie("user_password")
     return response
+
+# Load spreadsheet from Google Drive
+sheets = fetch_latest_excel()
+data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
+
 
 # Store the unique pillars and their average scores for each sheet
 pillar_avg_scores_dict = {}
