@@ -86,6 +86,8 @@ def fetch_latest_excel_if_updated():
     # Load the updated data
     new_data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
     new_pillar_avg_scores_dict = {}
+
+    all_pillars = set()
     
     for sheet_name, data in new_data_dict.items():
         if 'Utilization' in data.columns and data['Utilization'].dtype == 'object':
@@ -94,10 +96,12 @@ def fetch_latest_excel_if_updated():
         if 'Pillar' in data.columns and 'Score' in data.columns:
             avg_scores = data.groupby('Pillar')['Score'].mean().round(1).reset_index()
             new_pillar_avg_scores_dict[sheet_name] = avg_scores
+            all_pillars.update(data['Pillar'].unique())
     
     # Update global variables only after successful loading
     data_dict = new_data_dict
     pillar_avg_scores_dict = new_pillar_avg_scores_dict
+    unique_pillars = sorted(all_pillars)
 
 @app.before_request
 def check_for_updates():
