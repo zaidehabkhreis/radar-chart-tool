@@ -870,20 +870,6 @@ from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
 import io
 
-
-app = Flask(__name__)
-
-
-from flask import Flask, render_template, request, redirect, url_for, make_response
-import pandas as pd
-import plotly.graph_objects as go
-import json
-import os
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
-from google.oauth2 import service_account
-import io
-
 app = Flask(__name__)
 
 # Load predefined users from JSON file
@@ -955,9 +941,6 @@ def fetch_latest_excel():
             pillar_avg_scores_dict[sheet_name] = avg_scores
 
     return sheets_data
-
-# Load initial spreadsheet data
-sheets_data = fetch_latest_excel()
 
 def get_authenticated_user(request):
     """Check if the user is authenticated via cookies."""
