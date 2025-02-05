@@ -378,7 +378,7 @@ def generate_chart(sheet_name):
     ))
 
     # Extract the utilization value from the first row
-    utilization = (data.loc[0, 'Utilization'] if not data.empty and 'Utilization' in data.columns else 0) *100
+    utilization = int((data.loc[0, 'Utilization'] if not data.empty and 'Utilization' in data.columns else 0) *100)
     if utilization <= 50:
         utilization_color = '#6EC664'  # Neutral green
     elif utilization <= 80:
