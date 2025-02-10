@@ -9,29 +9,17 @@ from google.oauth2 import service_account
 import io
 import time
 import hashlib
+from google.cloud import storage
 
 
 
 app = Flask(__name__)
 
 
-# Load predefined users from JSON file
-users_json_env = os.getenv("USERS_JSON")
 
-if users_json_env:
-    try:
-        users_data = json.loads(users_json_env)  # Convert JSON string to Python dict
-        VALID_USERS = {user["email"]: user["password"] for user in users_data["users"]}
-    except json.JSONDecodeError:
-        raise Exception("Failed to parse USERS_JSON environment variable")
-else:
-    raise Exception("USERS_JSON environment variable is missing")
-
-# Load the predefined spreadsheet
-# Google Drive File ID of data.xlsx (get it from the URL)
+ADMIN_EMAIL = "tariq.khasawneh@devoteam.com"  # Define the admin user
 DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
 
-# Path to service account JSON key file (Ensure this is set in Cloud Run)
 service_account_json = os.getenv("SERVICE_ACCOUNT")
 
 if service_account_json:
@@ -41,6 +29,38 @@ else:
     raise Exception("Missing SERVICE_ACCOUNT environment variable")
 
 drive_service = build("drive", "v3", credentials=credentials)
+
+
+def fetch_users_from_gcs():
+    """Fetch the users JSON file from Google Cloud Storage."""
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob = bucket.blob(USERS_FILE_NAME)
+
+    if not blob.exists():
+        raise Exception(f"Users file {USERS_FILE_NAME} not found in bucket {BUCKET_NAME}")
+
+    users_json = blob.download_as_text()
+    users_data = json.loads(users_json)
+    return {user["email"]: user["password"] for user in users_data["users"]}
+
+def save_users_to_gcs(users_dict):
+    """Save the updated users JSON file back to Google Cloud Storage."""
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob = bucket.blob(USERS_FILE_NAME)
+
+    users_data = {"users": [{"email": email, "password": password} for email, password in users_dict.items()]}
+    blob.upload_from_string(json.dumps(users_data, indent=4), content_type="application/json")
+
+
+storage_client = storage.Client()  # No explicit credentials needed in Cloud Run
+BUCKET_NAME = "radar-chart-users"
+USERS_FILE_NAME = "users.json"
+
+
+
+# Fetch users initially
+VALID_USERS = fetch_users_from_gcs()
+
 
 # Global variables to track the latest hash and sheets
 data_dict = {}
@@ -118,13 +138,42 @@ def get_authenticated_user(request):
         return email
     return None
 
+
+@app.route('/admin/users', methods=['GET', 'POST'])
+def manage_users():
+    """Admin panel for managing users."""
+    user = get_authenticated_user(request)
+    if user != ADMIN_EMAIL:
+        return redirect(url_for('index'))  # Only admin can access
+
+    if request.method == 'POST':
+        action = request.form.get("action")
+        email = request.form.get("email")
+        password = request.form.get("password")
+
+        if action == "add" and email and password:
+            if email not in VALID_USERS:
+                VALID_USERS[email] = password
+                save_users_to_gcs(VALID_USERS)
+
+        elif action == "remove" and email:
+            if email in VALID_USERS:
+                del VALID_USERS[email]
+                save_users_to_gcs(VALID_USERS)
+
+    return render_template('admin.html', users=VALID_USERS, user=user)
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
 
-        # Check credentials
+        # Fetch users dynamically to ensure we have the latest list
+        global VALID_USERS
+        VALID_USERS = fetch_users_from_gcs()
+
         if email in VALID_USERS and VALID_USERS[email] == password:
             response = make_response(redirect(url_for('index')))
             response.set_cookie("user_email", email)

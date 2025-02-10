@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - User Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .admin-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            width: 400px;
+        }
+        h2 {
+            margin-bottom: 20px;
+            font-size: 22px;
+            color: #333;
+        }
+        input, button {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .user-list {
+            margin-top: 20px;
+            text-align: left;
+        }
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            background: #f0f0f0;
+            margin-bottom: 5px;
+            border-radius: 5px;
+        }
+        .remove-btn {
+            background: red;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 3px 8px;
+            font-size: 14px;
+            border-radius: 4px;
+        }
+        .remove-btn:hover {
+            background: darkred;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <h2>Admin Panel - User Management</h2>
+
+        <form method="POST">
+            <input type="email" name="email" placeholder="User Email" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit" name="action" value="add">Add User</button>
+        </form>
+
+        <div class="user-list">
+            <h3>Registered Users</h3>
+            {% for email in users %}
+                <div class="user-item">
+                    <span>{{ email }}</span>
+                    {% if email != user %} 
+                        <form method="POST" style="display:inline;">
+                            <input type="hidden" name="email" value="{{ email }}">
+                            <button type="submit" class="remove-btn" name="action" value="remove">Remove</button>
+                        </form>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+
+        <a href="{{ url_for('index') }}">Back to Dashboard</a>
+    </div>
+</body>
+</html>
