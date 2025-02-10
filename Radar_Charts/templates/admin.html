@@ -20,7 +20,7 @@
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             text-align: center;
-            width: 450px;
+            width: 500px;
         }
         h2 {
             margin-bottom: 20px;
@@ -28,7 +28,7 @@
             color: #333;
         }
         input, button {
-            width: calc(100% - 20px);
+            width: 100%;
             padding: 10px;
             margin: 5px 0;
             border: 1px solid #ddd;
@@ -49,25 +49,50 @@
             margin-top: 20px;
             text-align: left;
         }
-        .user-item {
+        .user-box {
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .user-box label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .user-box input {
+            width: calc(100% - 20px);
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .button-group {
             display: flex;
             justify-content: space-between;
-            padding: 5px;
-            background: #f0f0f0;
-            margin-bottom: 5px;
-            border-radius: 5px;
+        }
+        .update-btn {
+            background: #007bff;
+            width: 48%;
         }
         .remove-btn {
             background: red;
-            color: white;
-            border: none;
-            cursor: pointer;
-            padding: 3px 8px;
-            font-size: 14px;
-            border-radius: 4px;
+            width: 48%;
         }
         .remove-btn:hover {
             background: darkred;
+        }
+        .back-link {
+            display: block;
+            margin-top: 20px;
+            text-align: center;
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -84,21 +109,23 @@
         <div class="user-list">
             <h3>Registered Users</h3>
             {% for email in users %}
-                <div class="user-item">
-                    <span>{{ email }}</span>
-                    {% if email != user %} 
-                        <form method="POST" style="display:inline;">
-                            <input type="hidden" name="email" value="{{ email }}">
-                            <input type="password" name="password" placeholder="New Password">
-                            <button type="submit" name="action" value="edit">Update</button>
-                            <button type="submit" class="remove-btn" name="action" value="remove">Remove</button>
-                        </form>
-                    {% endif %}
+                <div class="user-box">
+                    <label>{{ email }}</label>
+                    <form method="POST">
+                        <input type="hidden" name="email" value="{{ email }}">
+                        <input type="password" name="password" placeholder="New Password">
+                        <div class="button-group">
+                            <button type="submit" class="update-btn" name="action" value="edit">Update</button>
+                            {% if email != user %}
+                                <button type="submit" class="remove-btn" name="action" value="remove">Remove</button>
+                            {% endif %}
+                        </div>
+                    </form>
                 </div>
             {% endfor %}
         </div>
 
-        <a href="{{ url_for('index') }}">Back to Dashboard</a>
+        <a href="{{ url_for('index') }}" class="back-link">Back to Dashboard</a>
     </div>
 </body>
 </html>
