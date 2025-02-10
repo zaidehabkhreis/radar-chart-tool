@@ -20,7 +20,7 @@
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             text-align: center;
-            width: 400px;
+            width: 450px;
         }
         h2 {
             margin-bottom: 20px;
@@ -89,6 +89,8 @@
                     {% if email != user %} 
                         <form method="POST" style="display:inline;">
                             <input type="hidden" name="email" value="{{ email }}">
+                            <input type="password" name="password" placeholder="New Password">
+                            <button type="submit" name="action" value="edit">Update</button>
                             <button type="submit" class="remove-btn" name="action" value="remove">Remove</button>
                         </form>
                     {% endif %}

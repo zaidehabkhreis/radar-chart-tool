@@ -156,12 +156,18 @@ def manage_users():
                 VALID_USERS[email] = password
                 save_users_to_gcs(VALID_USERS)
 
+        elif action == "edit" and email and password:
+            if email in VALID_USERS:
+                VALID_USERS[email] = password
+                save_users_to_gcs(VALID_USERS)
+
         elif action == "remove" and email:
             if email in VALID_USERS:
                 del VALID_USERS[email]
                 save_users_to_gcs(VALID_USERS)
 
     return render_template('admin.html', users=VALID_USERS, user=user)
+
 
 
 @app.route('/login', methods=['GET', 'POST'])

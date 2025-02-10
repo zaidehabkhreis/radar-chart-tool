@@ -211,6 +211,12 @@
     <div class="container">
         <h1>Radar Chart Generator</h1>
 
+        {% if user == "tariq.khasawneh@devoteam.com" %}
+        <a href="{{ url_for('manage_users') }}">
+            <button style="background: #28a745; margin-bottom: 20px;">Edit Users</button>
+        </a>
+        {% endif %}
+
         <form method="POST" action="{{ url_for('index') }}">
             <div class="filter-section">
                 <div>
