@@ -63,6 +63,7 @@ VALID_USERS = fetch_users_from_gcs()
 
 
 # Global variables to track the latest hash and sheets
+unique_pillars=[]
 data_dict = {}
 pillar_avg_scores_dict = {}
 latest_hash = None
@@ -80,48 +81,53 @@ def calculate_file_hash(file_stream):
 def fetch_latest_excel_if_updated():
     """Fetch the latest spreadsheet from Google Drive only if an update exists."""
     global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
-    
+
     current_time = time.time()
     if current_time - last_checked_time < CHECK_INTERVAL:
         return  # Skip checking if within the interval
-    
+
     last_checked_time = current_time  # Update the last checked time
-    
-    request = drive_service.files().get_media(fileId=DRIVE_FILE_ID)
+
+    request = drive_service.files().export_media(
+        fileId=DRIVE_FILE_ID,
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
     file_stream = io.BytesIO()
     downloader = MediaIoBaseDownload(file_stream, request)
     done = False
     while not done:
         _, done = downloader.next_chunk()
-    
+
     new_hash = calculate_file_hash(file_stream)
-    
+
     if new_hash == latest_hash:
         return  # No changes detected, skip reloading
-    
+
     latest_hash = new_hash  # Update the stored hash
     file_stream.seek(0)
     sheets = pd.ExcelFile(file_stream)
-    
+
     # Load the updated data
     new_data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
     new_pillar_avg_scores_dict = {}
 
     all_pillars = set()
-    
+
     for sheet_name, data in new_data_dict.items():
         if 'Utilization' in data.columns and data['Utilization'].dtype == 'object':
             data['Utilization'] = data['Utilization'].str.replace('%', '').astype(float)
-        
+
         if 'Pillar' in data.columns and 'Score' in data.columns:
             avg_scores = data.groupby('Pillar')['Score'].mean().round(1).reset_index()
             new_pillar_avg_scores_dict[sheet_name] = avg_scores
             all_pillars.update(data['Pillar'].unique())
-    
+
+    unique_pillars = sorted(all_pillars)
+
     # Update global variables only after successful loading
     data_dict = new_data_dict
     pillar_avg_scores_dict = new_pillar_avg_scores_dict
-    unique_pillars = sorted(all_pillars)
+
 
 @app.before_request
 def check_for_updates():
@@ -276,6 +282,8 @@ def index():
     user = get_authenticated_user(request)
     if not user:
         return redirect(url_for('login'))
+    
+    fetch_latest_excel_if_updated()
     
     search_name = request.args.get('search_name', '').lower()  # Convert search input to lowercase
     remove_filter = request.args.get('remove_filter', None)
