@@ -122,16 +122,23 @@ def fetch_latest_excel_if_updated():
             if 'Pillar' in data.columns and 'Score' in data.columns:
                 avg_scores = data.groupby('Pillar')['Score'].mean().round(1).reset_index()
                 new_pillar_avg_scores_dict[sheet_name] = avg_scores
-                all_pillars.update(data['Pillar'].unique())
+                pillars_in_sheet = data['Pillar'].dropna().unique()  # Remove NaN values
+                all_pillars.update(pillars_in_sheet)
 
-        unique_pillars = sorted(all_pillars)
+        # Log if no pillars were found
+        if not all_pillars:
+            print("⚠️ Warning: No pillars were found in the Excel file! Check data format.")
+
+        # Update the unique pillars correctly
+        unique_pillars = sorted(all_pillars) if all_pillars else ["No Data"]
 
         # Update global variables only after successful loading
         data_dict = new_data_dict
         pillar_avg_scores_dict = new_pillar_avg_scores_dict
 
     except Exception as e:
-        print(f"Error fetching spreadsheet: {e}")
+        print(f"❌ Error fetching spreadsheet: {e}")
+
 
 
 
