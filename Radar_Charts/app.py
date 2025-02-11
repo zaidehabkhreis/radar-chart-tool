@@ -68,6 +68,7 @@ pillar_avg_scores_dict = {}
 latest_hash = None
 last_checked_time = 0
 CHECK_INTERVAL = 60  # Check for updates every 60 seconds
+unique_pillars = []
 
 def calculate_file_hash(file_stream):
     """Compute the hash of the file to detect changes."""
