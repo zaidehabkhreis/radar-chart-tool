@@ -10,6 +10,7 @@ import io
 import time
 import hashlib
 from google.cloud import storage
+import threading
 
 
 
@@ -29,6 +30,12 @@ else:
     raise Exception("Missing SERVICE_ACCOUNT environment variable")
 
 drive_service = build("drive", "v3", credentials=credentials)
+
+
+# Google Cloud Storage for users.json
+storage_client = storage.Client()
+BUCKET_NAME = "radar-chart-users"
+USERS_FILE_NAME = "users.json"
 
 
 def fetch_users_from_gcs():
@@ -51,24 +58,18 @@ def save_users_to_gcs(users_dict):
     users_data = {"users": [{"email": email, "password": password} for email, password in users_dict.items()]}
     blob.upload_from_string(json.dumps(users_data, indent=4), content_type="application/json")
 
-
-storage_client = storage.Client()  # No explicit credentials needed in Cloud Run
-BUCKET_NAME = "radar-chart-users"
-USERS_FILE_NAME = "users.json"
-
-
-
 # Fetch users initially
 VALID_USERS = fetch_users_from_gcs()
 
 
-# Global variables to track the latest hash and sheets
-unique_pillars=[]
+# Global variables to track the latest data
+unique_pillars = []
 data_dict = {}
 pillar_avg_scores_dict = {}
 latest_hash = None
 last_checked_time = 0
-CHECK_INTERVAL = 60  # Check for updates every 60 seconds
+CHECK_INTERVAL = 300  # Check for updates every 5 minutes
+
 
 def calculate_file_hash(file_stream):
     """Compute the hash of the file to detect changes."""
@@ -88,51 +89,64 @@ def fetch_latest_excel_if_updated():
 
     last_checked_time = current_time  # Update the last checked time
 
-    request = drive_service.files().export_media(
-        fileId=DRIVE_FILE_ID,
-        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    file_stream = io.BytesIO()
-    downloader = MediaIoBaseDownload(file_stream, request)
-    done = False
-    while not done:
-        _, done = downloader.next_chunk()
+    try:
+        request = drive_service.files().export_media(
+            fileId=DRIVE_FILE_ID,
+            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        file_stream = io.BytesIO()
+        downloader = MediaIoBaseDownload(file_stream, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
 
-    new_hash = calculate_file_hash(file_stream)
+        new_hash = calculate_file_hash(file_stream)
 
-    if new_hash == latest_hash:
-        return  # No changes detected, skip reloading
+        if new_hash == latest_hash:
+            return  # No changes detected, skip reloading
 
-    latest_hash = new_hash  # Update the stored hash
-    file_stream.seek(0)
-    sheets = pd.ExcelFile(file_stream)
+        latest_hash = new_hash  # Update the stored hash
+        file_stream.seek(0)
+        sheets = pd.ExcelFile(file_stream)
 
-    # Load the updated data
-    new_data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
-    new_pillar_avg_scores_dict = {}
+        # Load the updated data
+        new_data_dict = {sheet_name: sheets.parse(sheet_name) for sheet_name in sheets.sheet_names}
+        new_pillar_avg_scores_dict = {}
 
-    all_pillars = set()
+        all_pillars = set()
 
-    for sheet_name, data in new_data_dict.items():
-        if 'Utilization' in data.columns and data['Utilization'].dtype == 'object':
-            data['Utilization'] = data['Utilization'].str.replace('%', '').astype(float)
+        for sheet_name, data in new_data_dict.items():
+            if 'Utilization' in data.columns and data['Utilization'].dtype == 'object':
+                data['Utilization'] = data['Utilization'].str.replace('%', '').astype(float)
 
-        if 'Pillar' in data.columns and 'Score' in data.columns:
-            avg_scores = data.groupby('Pillar')['Score'].mean().round(1).reset_index()
-            new_pillar_avg_scores_dict[sheet_name] = avg_scores
-            all_pillars.update(data['Pillar'].unique())
+            if 'Pillar' in data.columns and 'Score' in data.columns:
+                avg_scores = data.groupby('Pillar')['Score'].mean().round(1).reset_index()
+                new_pillar_avg_scores_dict[sheet_name] = avg_scores
+                all_pillars.update(data['Pillar'].unique())
 
-    unique_pillars = sorted(all_pillars)
+        unique_pillars = sorted(all_pillars)
 
-    # Update global variables only after successful loading
-    data_dict = new_data_dict
-    pillar_avg_scores_dict = new_pillar_avg_scores_dict
+        # Update global variables only after successful loading
+        data_dict = new_data_dict
+        pillar_avg_scores_dict = new_pillar_avg_scores_dict
+
+    except Exception as e:
+        print(f"Error fetching spreadsheet: {e}")
+
+
+
+
+def async_fetch_latest_excel():
+    """Run fetch_latest_excel_if_updated in a separate thread to avoid blocking."""
+    thread = threading.Thread(target=fetch_latest_excel_if_updated, daemon=True)
+    thread.start()
+
 
 
 @app.before_request
 def check_for_updates():
     """Check for spreadsheet updates before handling any request."""
-    fetch_latest_excel_if_updated()
+    async_fetch_latest_excel()
 
 # Authentication Middleware
 def get_authenticated_user(request):
@@ -283,7 +297,7 @@ def index():
     if not user:
         return redirect(url_for('login'))
     
-    fetch_latest_excel_if_updated()
+    async_fetch_latest_excel()
     
     search_name = request.args.get('search_name', '').lower()  # Convert search input to lowercase
     remove_filter = request.args.get('remove_filter', None)
@@ -306,36 +320,38 @@ def index():
         filter_operator = request.form.get('filter_operator')
         filter_value1 = request.form.get('filter_value1')
 
-        # Construct filter string for display
-        filter_str = f"Pillar: {filter_pillar} {filter_operator} {filter_value1}"
+        if filter_pillar and filter_operator and filter_value1:
+            filter_str = f"Pillar: {filter_pillar} {filter_operator} {filter_value1}"
+            if filter_str not in applied_filters:  # Avoid duplicates
+                applied_filters.append(filter_str)
 
-        # Append new filter if it doesn't already exist
-        if filter_str not in applied_filters:  # Avoid adding duplicates
-            applied_filters.append(filter_str)
-
-        # Create response to save applied filters in cookies
-        response = make_response(redirect(url_for('index')))
-        set_applied_filters(response, applied_filters)
-        return response
+            # Save applied filters in cookies
+            response = make_response(redirect(url_for('index')))
+            set_applied_filters(response, applied_filters)
+            return response
 
     # Filter data based on applied filters
     filtered_data_dict = filter_data(data_dict, applied_filters)  # Get the filtered dictionary
 
     # Remove sheets that do not comply with filters
-    sheets_to_display = [sheet_name for sheet_name, data in filtered_data_dict.items() if not data.empty]
+    sheets_to_display = [
+        sheet_name for sheet_name, data in filtered_data_dict.items() if not data.empty
+    ]
 
-    # If a search_name exists, filter only for the exact name
+    # Handle name search
     if search_name:
-        matching_sheets = [
-            sheet for sheet in sheets_to_display
-            if sheet.lower() == search_name  # Ensure case-insensitive exact match
+        sheets_to_display = [
+            sheet for sheet in sheets_to_display if sheet.lower() == search_name
         ]
-        sheets_to_display = matching_sheets  # Show only the sheets that match the search_name
+
+
+    # Ensure `unique_pillars` has a default value
+    available_pillars = unique_pillars if unique_pillars else ["No Data"]
 
     # Pass only the sheets that comply with filters or search_name to the template
     return render_template(
         'index.html',
-        pillars=unique_pillars,
+        pillars=available_pillars,
         sheets_to_display=sheets_to_display,
         applied_filters=applied_filters,
         data_dict=data_dict,
