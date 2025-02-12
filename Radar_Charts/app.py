@@ -89,7 +89,7 @@ def fetch_latest_excel_if_updated():
     last_checked_time = current_time  # Update the last checked time
 
     try:
-        request = drive_service.files().export_media(
+        request = drive_service.files().get_media(
             fileId=DRIVE_FILE_ID,
             mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
