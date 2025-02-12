@@ -18,7 +18,7 @@ app = Flask(__name__)
 
 
 ADMIN_EMAIL = "tariq.khasawneh@devoteam.com"  # Define the admin user
-DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
+DRIVE_FILE_ID = "1PpMb1EcjN_YUj3dtWDY5_oJphov6Q1Dc"
 
 service_account_json = os.getenv("SERVICE_ACCOUNT")
 
@@ -89,10 +89,8 @@ def fetch_latest_excel_if_updated():
     last_checked_time = current_time  # Update the last checked time
 
     try:
-        request = drive_service.files().get_media(
-            fileId=DRIVE_FILE_ID,
-            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        request = drive_service.files().get_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
+
         file_stream = io.BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
         done = False
