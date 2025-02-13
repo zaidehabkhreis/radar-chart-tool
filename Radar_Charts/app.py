@@ -437,7 +437,7 @@ def generate_chart(sheet_name):
         utilization_color = '#6EC664'
 
     fig.add_annotation(
-        x=0.5,
+        x=0.3,
         y=-0.2,
         text=f"Capacity: {capacity}%",
         showarrow=False,
@@ -448,19 +448,19 @@ def generate_chart(sheet_name):
 
     fig.add_shape(
         type="rect",
-        x0=0.25,
-        x1=0.75,
+        x0=0.05,
+        x1=0.25,
         y0=-0.3,
         y1=-0.25,
-        fillcolor=utilization_color,
+        fillcolor=capacity_color,
         line=dict(width=0),
         xref="paper",
         yref="paper"
     )
 
     fig.add_annotation(
-        x=0.5,
-        y=-0.35,
+        x=0.7,
+        y=-0.2,
         text=f"Utilization: {utilization}%",
         showarrow=False,
         font=dict(color=utilization_color, size=12),
@@ -470,10 +470,10 @@ def generate_chart(sheet_name):
 
     fig.add_shape(
         type="rect",
-        x0=0.25,
+        x0=0.55,
         x1=0.75,
-        y0=-0.4,
-        y1=-0.35,
+        y0=-0.3,
+        y1=-0.25,
         fillcolor=utilization_color,
         line=dict(width=0),
         xref="paper",
