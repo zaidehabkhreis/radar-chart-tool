@@ -82,13 +82,12 @@ def fetch_latest_excel_if_updated():
 
     current_time = time.time()
     if current_time - last_checked_time < CHECK_INTERVAL:
-        return  
+        return False  # No need to check again within the interval
 
     last_checked_time = current_time  
 
     try:
         request = drive_service.files().get_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
-
         file_stream = io.BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
         done = False
@@ -98,9 +97,9 @@ def fetch_latest_excel_if_updated():
         new_hash = calculate_file_hash(file_stream)
 
         if new_hash == latest_hash:
-            return  
+            return False  # No update detected, skip reloading data
 
-        latest_hash = new_hash 
+        latest_hash = new_hash  # Update the stored hash
         file_stream.seek(0)
         sheets = pd.ExcelFile(file_stream)
 
@@ -122,23 +121,25 @@ def fetch_latest_excel_if_updated():
                 pillars_in_sheet = data['Pillar'].dropna().unique()  
                 all_pillars.update(pillars_in_sheet)
 
-        if not all_pillars:
-            print("No pillars were found in the Excel file! Check data format.")
-
         unique_pillars = sorted(all_pillars) if all_pillars else ["No Data"]
 
-        data_dict = new_data_dict
-        pillar_avg_scores_dict = new_pillar_avg_scores_dict
+        # Update global variables only if data has changed
+        data_dict.update(new_data_dict)
+        pillar_avg_scores_dict.update(new_pillar_avg_scores_dict)
+
+        return True  # Return True to indicate new data was loaded
 
     except Exception as e:
         print(f"Error fetching spreadsheet: {e}")
+        return False
+
 
 
 
 @app.before_request
 def check_for_updates():
-    """Check for spreadsheet updates before handling any request."""
-    fetch_latest_excel_if_updated()
+    """Check for spreadsheet updates only when needed."""
+    fetch_latest_excel_if_updated()  
 
 def get_authenticated_user(request):
     """Check if the user is authenticated via cookies."""
@@ -283,7 +284,10 @@ def index():
     user = get_authenticated_user(request)
     if not user:
         return redirect(url_for('login'))
-    
+
+    # Check for updates only once before rendering
+    fetch_latest_excel_if_updated()
+
     search_name = request.args.get('search_name', '').lower()  
     remove_filter = request.args.get('remove_filter', None)
 
@@ -291,7 +295,6 @@ def index():
 
     if remove_filter:
         applied_filters = [f for f in applied_filters if f != remove_filter]
-
         response = make_response(redirect(url_for('index')))
         set_applied_filters(response, applied_filters)
         return response
@@ -310,16 +313,13 @@ def index():
         set_applied_filters(response, applied_filters)
         return response
 
+    # Use cached data unless updates are detected
     filtered_data_dict = filter_data(data_dict, applied_filters)
 
     sheets_to_display = [sheet_name for sheet_name, data in filtered_data_dict.items() if not data.empty]
 
     if search_name:
-        matching_sheets = [
-            sheet for sheet in sheets_to_display
-            if sheet.lower() == search_name  
-        ]
-        sheets_to_display = matching_sheets  
+        sheets_to_display = [sheet for sheet in sheets_to_display if sheet.lower() == search_name]
 
     return render_template(
         'index.html',
