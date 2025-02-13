@@ -458,7 +458,7 @@ def generate_chart(sheet_name):
     )
 
     fig.add_annotation(
-        x=0.09,
+        x=0.07,
         y=-0.35,
         text=f"Utilization: {utilization}%",
         showarrow=False,
