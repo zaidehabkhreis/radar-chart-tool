@@ -80,7 +80,6 @@
             text-align: center;
             flex: 0 1 calc(50% - 20px);
             box-sizing: border-box;
-            position: relative;
         }
 
         .chart iframe {
@@ -93,50 +92,26 @@
             font-weight: bold;
         }
 
- /* New Box Layout for Capacity & Utilization */
-.metric-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 15px;
-    padding: 10px;
-    border-top: 1px solid #ccc;
-}
+        /* Bar container for Capacity and Utilization bars */
+        .bar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin: 10px 0;
+        }
 
-/* Each metric row */
-.metric-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    padding: 3px 0;
-}
-
-/* Labels */
-.metric-label {
-    font-size: 14px;
-    font-weight: bold;
-    width: 25%;
-    text-align: right;
-}
-
-/* Bar containers */
-.metric-bar {
-    width: 70%;
-    height: 18px;
-    border-radius: 5px;
-    position: relative;
-    background: #ddd;
-    overflow: hidden;
-}
-
-/* Dynamic fill inside the bar */
-.metric-fill {
-height: 100%;
-width: 0%;
-border-radius: 5px;
-transition: width 0.5s ease-in-out;
-}
+                /* General bar styling */
+        .bar {
+            height: 20px;
+            border-radius: 5px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
 
         /* Scrollable Popup Styles */
         .popup {
@@ -240,6 +215,7 @@ transition: width 0.5s ease-in-out;
         <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
     </div>
 
+
     <div class="container">
         <h1>Radar Chart Generator</h1>
 
@@ -299,25 +275,9 @@ transition: width 0.5s ease-in-out;
                         <div class="chart">
                             <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
                             <p>{{ sheet_name }}</p>
-
-                            <!-- Capacity & Utilization Bars -->
-                            <div class="metric-container">
-                                <div class="metric-row">
-                                    <span class="metric-label" style="color: {{ capacity_color }}">Capacity: {{ capacity }}%</span>
-                                    <div class="metric-bar">
-                                        <div class="metric-fill" style="width: {{ capacity }}%; background: {{ capacity_color }};"></div>
-                                    </div>
-                                </div>
-                                <div class="metric-row">
-                                    <span class="metric-label" style="color: {{ utilization_color }}">Utilization: {{ utilization }}%</span>
-                                    <div class="metric-bar">
-                                        <div class="metric-fill" style="width: {{ utilization }}%; background: {{ utilization_color }};"></div>
-                                    </div>
-                                </div>
-                            </div>
-
+        
                             <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
-
+        
                             <div id="popup-{{ sheet_name }}" class="popup">
                                 <span class="close-btn" onclick="closePopup('{{ sheet_name }}')">×</span>
                                 <div class="popup-title">Engagements for {{ sheet_name }}</div>
@@ -348,17 +308,19 @@ transition: width 0.5s ease-in-out;
                 <p>No charts available for the selected criteria.</p>
             {% endif %}
         </div>
+        
+        
 
         <div id="overlay" class="overlay"></div>
 
         <script>
             function openPopup(sheetName) {
-                document.getElementById(`popup-${sheetName}`).style.display = 'block';
+                document.getElementById(popup-${sheetName}).style.display = 'block';
                 document.getElementById('overlay').style.display = 'block';
             }
 
             function closePopup(sheetName) {
-                document.getElementById(`popup-${sheetName}`).style.display = 'none';
+                document.getElementById(popup-${sheetName}).style.display = 'none';
                 document.getElementById('overlay').style.display = 'none';
             }
 
@@ -370,9 +332,10 @@ transition: width 0.5s ease-in-out;
         </script>
     </div>
 
+
     <script>
         // Wait for the DOM to load
-        document.addEventListener("DOMContentLoaded", () => {
+            document.addEventListener("DOMContentLoaded", () => {
             // Select all chart containers
             const chartContainers = document.querySelectorAll(".chart");
 
@@ -396,5 +359,4 @@ transition: width 0.5s ease-in-out;
         });
     </script>
 </body>
-
 </html>
