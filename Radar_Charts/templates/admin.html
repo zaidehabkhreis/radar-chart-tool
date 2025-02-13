@@ -13,20 +13,26 @@
             align-items: center;
             height: 100vh;
             margin: 0;
+            overflow: hidden;
         }
+
         .admin-container {
             background: white;
-            padding: 30px;
+            padding: 20px;
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             text-align: center;
             width: 500px;
+            max-height: 90vh;
+            overflow-y: auto; /* Enables scrolling if needed */
         }
+
         h2 {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             font-size: 22px;
             color: #333;
         }
+
         input, button {
             width: 100%;
             padding: 10px;
@@ -35,6 +41,7 @@
             border-radius: 6px;
             font-size: 14px;
         }
+
         button {
             background: #007bff;
             color: white;
@@ -42,13 +49,16 @@
             font-size: 16px;
             cursor: pointer;
         }
+
         button:hover {
             background: #0056b3;
         }
+
         .user-list {
-            margin-top: 20px;
+            margin-top: 15px;
             text-align: left;
         }
+
         .user-box {
             background: #ffffff;
             padding: 15px;
@@ -57,12 +67,14 @@
             margin-bottom: 10px;
             text-align: center;
         }
+
         .user-box label {
             font-weight: bold;
             display: block;
             margin-bottom: 5px;
             color: #333;
         }
+
         .user-box input {
             width: calc(100% - 20px);
             padding: 8px;
@@ -71,24 +83,29 @@
             font-size: 14px;
             margin-bottom: 8px;
         }
+
         .button-group {
             display: flex;
             justify-content: space-between;
         }
+
         .update-btn {
             background: #007bff;
             width: 48%;
         }
+
         .remove-btn {
             background: red;
             width: 48%;
         }
+
         .remove-btn:hover {
             background: darkred;
         }
+
         .back-link {
             display: block;
-            margin-top: 20px;
+            margin-top: 15px;
             text-align: center;
             color: #007bff;
             text-decoration: none;
