@@ -292,11 +292,6 @@
                         <div class="chart">
                             <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
                             <p>{{ sheet_name }}</p>
-
-                            <div class="bar-label">Capacity</div>
-                            <div class="bar capacity-bar" style="width: 80%;">65%</div>
-                            <div class="bar-label">Utilization</div>
-                            <div class="bar utilization-bar" style="width: 40%;">40%</div>
         
                             <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
         
