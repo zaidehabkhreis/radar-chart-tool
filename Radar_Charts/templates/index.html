@@ -96,12 +96,14 @@
         .bar-container {
             display: flex;
             flex-direction: column;
-            gap: 5px;
-            margin: 10px 0;
+            align-items: center;
+            gap: 10px;
+            margin: 10px;
         }
 
                 /* General bar styling */
         .bar {
+            width: 80%;
             height: 20px;
             border-radius: 5px;
             color: white;
@@ -111,6 +113,21 @@
             align-items: center;
             justify-content: center;
             text-align: center;
+            padding: 5px;
+
+        }
+
+        .capacity-bar {
+            background: linear-gradient(to right, #28a745, #ff0000);
+        }
+        .utilization-bar {
+            background: linear-gradient(to right, #ff0000, #28a745);
+        }
+
+        .bar-label {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
         }
 
         /* Scrollable Popup Styles */
@@ -275,6 +292,11 @@
                         <div class="chart">
                             <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
                             <p>{{ sheet_name }}</p>
+
+                            <div class="bar-label">Capacity</div>
+                            <div class="bar capacity-bar" style="width: 80%;">65%</div>
+                            <div class="bar-label">Utilization</div>
+                            <div class="bar utilization-bar" style="width: 40%;">40%</div>
         
                             <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
         
