@@ -300,17 +300,14 @@ transition: width 0.5s ease-in-out;
                             <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
                             <p>{{ sheet_name }}</p>
 
-                            <!-- New Metric Container for Capacity & Utilization -->
+                            <!-- Capacity & Utilization Bars -->
                             <div class="metric-container">
-                                <!-- Capacity Row -->
                                 <div class="metric-row">
                                     <span class="metric-label" style="color: {{ capacity_color }}">Capacity: {{ capacity }}%</span>
                                     <div class="metric-bar">
                                         <div class="metric-fill" style="width: {{ capacity }}%; background: {{ capacity_color }};"></div>
                                     </div>
                                 </div>
-
-                                <!-- Utilization Row -->
                                 <div class="metric-row">
                                     <span class="metric-label" style="color: {{ utilization_color }}">Utilization: {{ utilization }}%</span>
                                     <div class="metric-bar">
