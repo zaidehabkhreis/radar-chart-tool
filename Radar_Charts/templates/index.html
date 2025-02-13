@@ -80,6 +80,7 @@
             text-align: center;
             flex: 0 1 calc(50% - 20px);
             box-sizing: border-box;
+            position: relative;
         }
 
         .chart iframe {
@@ -92,46 +93,50 @@
             font-weight: bold;
         }
 
-        /* Bar container for Capacity and Utilization bars */
-        .bar-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            margin: 15px 0;
-            padding: 5px;
-        }
+ /* New Box Layout for Capacity & Utilization */
+.metric-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 15px;
+    padding: 10px;
+    border-top: 1px solid #ccc;
+}
 
-        /* General bar styling */
-        .bar {
-            height: 20px;
-            width: 80%;
-            border-radius: 5px;
-            color: white;
-            font-size: 12px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
+/* Each metric row */
+.metric-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 3px 0;
+}
 
-        /* Capacity Bar */
-        .capacity-bar {
-            background: #ddd;
-        }
+/* Labels */
+.metric-label {
+    font-size: 14px;
+    font-weight: bold;
+    width: 25%;
+    text-align: right;
+}
 
-        /* Utilization Bar */
-        .utilization-bar {
-            background: #ddd;
-        }
+/* Bar containers */
+.metric-bar {
+    width: 70%;
+    height: 18px;
+    border-radius: 5px;
+    position: relative;
+    background: #ddd;
+    overflow: hidden;
+}
 
-        /* Bar Text Styling */
-        .bar-label {
-            font-size: 14px;
-            font-weight: bold;
-            margin-top: 2px;
-        }
+/* Dynamic fill inside the bar */
+.metric-fill {
+height: 100%;
+width: 0%;
+border-radius: 5px;
+transition: width 0.5s ease-in-out;
+}
 
         /* Scrollable Popup Styles */
         .popup {
@@ -235,7 +240,6 @@
         <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
     </div>
 
-
     <div class="container">
         <h1>Radar Chart Generator</h1>
 
@@ -295,9 +299,28 @@
                         <div class="chart">
                             <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
                             <p>{{ sheet_name }}</p>
-        
+
+                            <!-- New Metric Container for Capacity & Utilization -->
+                            <div class="metric-container">
+                                <!-- Capacity Row -->
+                                <div class="metric-row">
+                                    <span class="metric-label" style="color: {{ capacity_color }}">Capacity: {{ capacity }}%</span>
+                                    <div class="metric-bar">
+                                        <div class="metric-fill" style="width: {{ capacity }}%; background: {{ capacity_color }};"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Utilization Row -->
+                                <div class="metric-row">
+                                    <span class="metric-label" style="color: {{ utilization_color }}">Utilization: {{ utilization }}%</span>
+                                    <div class="metric-bar">
+                                        <div class="metric-fill" style="width: {{ utilization }}%; background: {{ utilization_color }};"></div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
-        
+
                             <div id="popup-{{ sheet_name }}" class="popup">
                                 <span class="close-btn" onclick="closePopup('{{ sheet_name }}')">×</span>
                                 <div class="popup-title">Engagements for {{ sheet_name }}</div>
@@ -328,8 +351,6 @@
                 <p>No charts available for the selected criteria.</p>
             {% endif %}
         </div>
-        
-        
 
         <div id="overlay" class="overlay"></div>
 
@@ -352,10 +373,9 @@
         </script>
     </div>
 
-
     <script>
         // Wait for the DOM to load
-            document.addEventListener("DOMContentLoaded", () => {
+        document.addEventListener("DOMContentLoaded", () => {
             // Select all chart containers
             const chartContainers = document.querySelectorAll(".chart");
 
@@ -379,4 +399,5 @@
         });
     </script>
 </body>
+
 </html>
