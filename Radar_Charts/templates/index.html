@@ -96,13 +96,16 @@
         .bar-container {
             display: flex;
             flex-direction: column;
-            gap: 5px;
-            margin: 10px 0;
+            align-items: center;
+            gap: 8px;
+            margin: 15px 0;
+            padding: 5px;
         }
 
-                /* General bar styling */
+        /* General bar styling */
         .bar {
             height: 20px;
+            width: 80%;
             border-radius: 5px;
             color: white;
             font-size: 12px;
@@ -111,6 +114,23 @@
             align-items: center;
             justify-content: center;
             text-align: center;
+        }
+
+        /* Capacity Bar */
+        .capacity-bar {
+            background: #ddd;
+        }
+
+        /* Utilization Bar */
+        .utilization-bar {
+            background: #ddd;
+        }
+
+        /* Bar Text Styling */
+        .bar-label {
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 2px;
         }
 
         /* Scrollable Popup Styles */
