@@ -438,7 +438,7 @@ def generate_chart(sheet_name):
     fig.add_annotation(
         x=0.2,
         y=-0.21,
-        text=f"Capacity:",
+        text=f"Capacity:{capacity}%",
         showarrow=False,
         font=dict(color=capacity_color, size=12),
         xref="paper",
@@ -460,7 +460,7 @@ def generate_chart(sheet_name):
     fig.add_annotation(
         x=0.2,
         y=-0.31,
-        text=f"Utilization:",
+        text=f"Utilization: {utilization}%",
         showarrow=False,
         font=dict(color=utilization_color, size=12),
         xref="paper",
