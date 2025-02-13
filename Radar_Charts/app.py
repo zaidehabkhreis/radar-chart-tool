@@ -426,7 +426,6 @@ def generate_chart(sheet_name):
     else:
         capacity_color = '#E74C3C' 
 
-
     if utilization <= 50:
         utilization_color = '#E74C3C'  
     elif utilization <= 80:
@@ -437,9 +436,9 @@ def generate_chart(sheet_name):
         utilization_color = '#6EC664'
 
     fig.add_annotation(
-        x=0.1,
+        x=0.2,
         y=-0.21,
-        text=f"Capacity: {capacity}%",
+        text=f"Capacity:",
         showarrow=False,
         font=dict(color=capacity_color, size=12),
         xref="paper",
@@ -448,10 +447,10 @@ def generate_chart(sheet_name):
 
     fig.add_shape(
         type="rect",
-        x0=0.3,
-        x1=0.7,
-        y0=-0.24,
-        y1=-0.18,
+        x0=0.35,
+        x1=0.85,
+        y0=-0.23,
+        y1=-0.19,
         fillcolor=capacity_color,
         line=dict(width=0),
         xref="paper",
@@ -459,9 +458,9 @@ def generate_chart(sheet_name):
     )
 
     fig.add_annotation(
-        x=0.1,
+        x=0.2,
         y=-0.31,
-        text=f"Utilization: {utilization}%",
+        text=f"Utilization:",
         showarrow=False,
         font=dict(color=utilization_color, size=12),
         xref="paper",
@@ -470,10 +469,10 @@ def generate_chart(sheet_name):
 
     fig.add_shape(
         type="rect",
-        x0=0.3,
-        x1=0.7,
-        y0=-0.34,
-        y1=-0.28,
+        x0=0.35,
+        x1=0.85,
+        y0=-0.33,
+        y1=-0.29,
         fillcolor=utilization_color,
         line=dict(width=0),
         xref="paper",
@@ -489,7 +488,6 @@ def generate_chart(sheet_name):
     )
 
     return fig.to_html(full_html=False)
-
 
 
 if __name__ == '__main__':

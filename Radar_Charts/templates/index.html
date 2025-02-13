@@ -332,12 +332,12 @@
 
         <script>
             function openPopup(sheetName) {
-                document.getElementById(popup-${sheetName}).style.display = 'block';
+                document.getElementById(`popup-${sheetName}`).style.display = 'block';
                 document.getElementById('overlay').style.display = 'block';
             }
 
             function closePopup(sheetName) {
-                document.getElementById(popup-${sheetName}).style.display = 'none';
+                document.getElementById(`popup-${sheetName}`).style.display = 'none';
                 document.getElementById('overlay').style.display = 'none';
             }
 
