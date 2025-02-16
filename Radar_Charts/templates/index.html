@@ -388,15 +388,16 @@
             const hiddenChartsContainer = document.getElementById("hidden-charts");
         
             function loadMoreCharts() {
-                let charts = hiddenChartsContainer.querySelectorAll(".chart");
+                let charts = hiddenChartsContainer.children;
                 let loadedCharts = 0;
         
                 while (chartIndex < charts.length && loadedCharts < chartsPerLoad) {
                     chartContainer.appendChild(charts[chartIndex]);
-                    chartIndex++;
                     loadedCharts++;
+                    chartIndex++;
                 }
         
+                // If all charts are loaded, remove the event listener
                 if (chartIndex >= charts.length) {
                     window.removeEventListener("scroll", onScroll);
                 }
@@ -404,11 +405,12 @@
         
             function onScroll() {
                 const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-                if (scrollTop + clientHeight >= scrollHeight - 50) {
+                if (scrollTop + clientHeight >= scrollHeight - 10) {
                     loadMoreCharts();
                 }
             }
         
+            // Attach the scroll event
             window.addEventListener("scroll", onScroll);
         
             function openPopup(sheetName) {
@@ -446,7 +448,11 @@
                     }
                 });
             });
+        
+            // Load more charts initially if needed
+            loadMoreCharts();
         </script>
+        
         
 
     </div>
