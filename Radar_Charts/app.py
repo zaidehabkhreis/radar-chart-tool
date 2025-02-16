@@ -59,8 +59,7 @@ USERS_FILE_NAME = "users.json"
 
 
 VALID_USERS = fetch_users_from_gcs()
-chart_cache = {}
-sheet_hashes = {}  # Store hashes for individual sheets
+
 
 data_dict = {}
 pillar_avg_scores_dict = {}
@@ -77,14 +76,9 @@ def calculate_file_hash(file_stream):
         hasher.update(chunk)
     return hasher.hexdigest()
 
-def calculate_sheet_hash(df):
-    """Compute a hash for an individual sheet to detect changes."""
-    return hashlib.md5(pd.util.hash_pandas_object(df, index=True).values).hexdigest()
-
-
 def fetch_latest_excel_if_updated():
     """Fetch the latest spreadsheet from Google Drive only if an update exists."""
-    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time, chart_cache, sheet_hashes
+    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
 
     current_time = time.time()
     if current_time - last_checked_time < CHECK_INTERVAL:
@@ -113,15 +107,8 @@ def fetch_latest_excel_if_updated():
         new_pillar_avg_scores_dict = {}
 
         all_pillars = set()
-        changed_sheets=set()
+
         for sheet_name, data in new_data_dict.items():
-            new_sheet_hash = calculate_sheet_hash(data)
-
-            if sheet_name not in sheet_hashes or sheet_hashes[sheet_name] != new_sheet_hash:
-                changed_sheets.add(sheet_name)
-                sheet_hashes[sheet_name] = new_sheet_hash  # Update the sheet hash
-
-
             if 'Capacity' in data.columns and data['Capacity'].dtype == 'object':
                 data['Capacity'] = data['Capacity'].str.replace('%', '').astype(float)
             
@@ -139,11 +126,6 @@ def fetch_latest_excel_if_updated():
         # Update global variables only if data has changed
         data_dict.update(new_data_dict)
         pillar_avg_scores_dict.update(new_pillar_avg_scores_dict)
-
-        # Clear only the changed sheets from the cache
-        for sheet_name in changed_sheets:
-            if sheet_name in chart_cache:
-                del chart_cache[sheet_name]
 
         return True  # Return True to indicate new data was loaded
 
@@ -362,9 +344,6 @@ def generate_chart(sheet_name):
         return redirect(url_for('login'))
     applied_filters = get_applied_filters(request)
 
-    if sheet_name in chart_cache:
-        return chart_cache[sheet_name]
-
     if sheet_name not in data_dict:
         return "Sheet not found", 404
 
@@ -508,10 +487,8 @@ def generate_chart(sheet_name):
         showlegend=False,
     )
 
-    rendered_chart = fig.to_html(full_html=False)
-    chart_cache[sheet_name] = rendered_chart
+    return fig.to_html(full_html=False)
 
-    return rendered_chart
 
 if __name__ == '__main__':
     app.run(debug=True)
