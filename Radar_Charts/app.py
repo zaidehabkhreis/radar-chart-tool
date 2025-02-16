@@ -67,6 +67,7 @@ latest_hash = None
 last_checked_time = 0
 CHECK_INTERVAL = 60 
 unique_pillars = []
+chart_cache = {} 
 
 def calculate_file_hash(file_stream):
     """Compute the hash of the file to detect changes."""
