@@ -382,57 +382,63 @@
         <div id="overlay" class="overlay"></div>
 
         <script>
-            let chartIndex = 6;  
+            let chartIndex = 6;
             const chartsPerLoad = 6;
-            const hiddenChartsContainer = document.getElementById("hidden-charts");
             const chartContainer = document.getElementById("chart-container");
-
+            const hiddenChartsContainer = document.getElementById("hidden-charts");
+        
             function loadMoreCharts() {
-                let charts = hiddenChartsContainer.children;
+                let charts = hiddenChartsContainer.querySelectorAll(".chart");
                 let loadedCharts = 0;
-
+        
                 while (chartIndex < charts.length && loadedCharts < chartsPerLoad) {
                     chartContainer.appendChild(charts[chartIndex]);
                     chartIndex++;
                     loadedCharts++;
                 }
+        
+                if (chartIndex >= charts.length) {
+                    window.removeEventListener("scroll", onScroll);
+                }
             }
-
-            window.addEventListener("scroll", () => {
+        
+            function onScroll() {
                 const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
                 if (scrollTop + clientHeight >= scrollHeight - 50) {
                     loadMoreCharts();
                 }
-            });
-
+            }
+        
+            window.addEventListener("scroll", onScroll);
+        
             function openPopup(sheetName) {
                 document.getElementById(`popup-${sheetName}`).style.display = 'block';
                 document.getElementById('overlay').style.display = 'block';
             }
-
+        
             function closePopup(sheetName) {
                 document.getElementById(`popup-${sheetName}`).style.display = 'none';
                 document.getElementById('overlay').style.display = 'none';
             }
-
+        
             function removeFilter(filter) {
                 const url = new URL(window.location.href);
                 url.searchParams.append('remove_filter', filter);
                 window.location.href = url.toString();
             }
-
-            // ✅ Re-added iframe filtering for "No data available" message
+        
+            // ✅ Ensures charts with "No data available" get removed
             document.addEventListener("DOMContentLoaded", () => {
                 const chartContainers = document.querySelectorAll(".chart");
-
+        
                 chartContainers.forEach(container => {
                     const iframe = container.querySelector("iframe");
-
+        
                     if (iframe) {
                         iframe.onload = () => {
                             const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                             const iframeBodyText = iframeDoc.body?.textContent || "";
-
+        
                             if (iframeBodyText.includes("No data available for the selected filters.")) {
                                 container.remove();
                             }
@@ -441,6 +447,7 @@
                 });
             });
         </script>
+        
 
     </div>
 
