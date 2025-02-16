@@ -18,7 +18,7 @@ app = Flask(__name__)
 
 
 ADMIN_EMAIL = "tariq.khasawneh@devoteam.com"  
-DRIVE_FILE_ID = "1PpMb1EcjN_YUj3dtWDY5_oJphov6Q1Dc"
+DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
 
 service_account_json = os.getenv("SERVICE_ACCOUNT")
 
@@ -59,7 +59,7 @@ USERS_FILE_NAME = "users.json"
 
 
 VALID_USERS = fetch_users_from_gcs()
-
+chart_cache = {}
 
 data_dict = {}
 pillar_avg_scores_dict = {}
@@ -78,7 +78,7 @@ def calculate_file_hash(file_stream):
 
 def fetch_latest_excel_if_updated():
     """Fetch the latest spreadsheet from Google Drive only if an update exists."""
-    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
+    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time, chart_cache
 
     current_time = time.time()
     if current_time - last_checked_time < CHECK_INTERVAL:
@@ -126,6 +126,8 @@ def fetch_latest_excel_if_updated():
         # Update global variables only if data has changed
         data_dict.update(new_data_dict)
         pillar_avg_scores_dict.update(new_pillar_avg_scores_dict)
+
+        chart_cache.clear()
 
         return True  # Return True to indicate new data was loaded
 
@@ -344,6 +346,9 @@ def generate_chart(sheet_name):
         return redirect(url_for('login'))
     applied_filters = get_applied_filters(request)
 
+    if sheet_name in chart_cache:
+        return chart_cache[sheet_name]
+
     if sheet_name not in data_dict:
         return "Sheet not found", 404
 
@@ -487,8 +492,10 @@ def generate_chart(sheet_name):
         showlegend=False,
     )
 
-    return fig.to_html(full_html=False)
+    rendered_chart = fig.to_html(full_html=False)
+    chart_cache[sheet_name] = rendered_chart
 
+    return rendered_chart
 
 if __name__ == '__main__':
     app.run(debug=True)
