@@ -225,13 +225,20 @@
         }
     </style>
 </head>
+
+
+
+
+
+
+
+
 <body>
 
     <div class="top-bar">
         <span>Welcome, {{ user.split('.')[0].capitalize() }}</span>
         <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
     </div>
-
 
     <div class="container">
         <h1>Radar Chart Generator</h1>
@@ -325,8 +332,6 @@
                 <p>No charts available for the selected criteria.</p>
             {% endif %}
         </div>
-        
-        
 
         <div id="overlay" class="overlay"></div>
 
@@ -346,34 +351,62 @@
                 url.searchParams.append('remove_filter', filter);
                 window.location.href = url.toString();
             }
-        </script>
-    </div>
 
+            let loadedCharts = 0;
+            const chartsPerLoad = 4;
+            let sheetsToLoad = JSON.parse('{{ sheets_to_display | tojson }}');
 
-    <script>
-        // Wait for the DOM to load
-            document.addEventListener("DOMContentLoaded", () => {
-            // Select all chart containers
-            const chartContainers = document.querySelectorAll(".chart");
-
-            // Loop through each container
-            chartContainers.forEach(container => {
-                const iframe = container.querySelector("iframe");
-
-                // Check if iframe content has "No data available for the selected filters."
-                if (iframe) {
-                    iframe.onload = () => {
-                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                        const iframeBodyText = iframeDoc.body?.textContent || "";
-
-                        // If the text contains the undesired phrase, remove the container
-                        if (iframeBodyText.includes("No data available for the selected filters.")) {
-                            container.remove();
-                        }
-                    };
+            function loadCharts() {
+                const container = document.getElementById("charts-container");
+                let count = 0;
+                
+                while (loadedCharts < sheetsToLoad.length && count < chartsPerLoad) {
+                    let sheetName = sheetsToLoad[loadedCharts];
+                    let chartDiv = document.createElement("div");
+                    chartDiv.classList.add("chart");
+                    
+                    let iframe = document.createElement("iframe");
+                    iframe.src = `/chart/${sheetName}`;
+                    iframe.frameBorder = "0";
+                    
+                    let title = document.createElement("p");
+                    title.textContent = sheetName;
+                    
+                    chartDiv.appendChild(iframe);
+                    chartDiv.appendChild(title);
+                    container.appendChild(chartDiv);
+                    
+                    loadedCharts++;
+                    count++;
+                }
+            }
+            
+            window.addEventListener("scroll", () => {
+                if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 50) {
+                    loadCharts();
                 }
             });
-        });
-    </script>
+            
+            document.addEventListener("DOMContentLoaded", () => {
+                loadCharts();
+            });
+
+            document.addEventListener("DOMContentLoaded", () => {
+                const chartContainers = document.querySelectorAll(".chart");
+                chartContainers.forEach(container => {
+                    const iframe = container.querySelector("iframe");
+                    if (iframe) {
+                        iframe.onload = () => {
+                            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                            const iframeBodyText = iframeDoc.body?.textContent || "";
+                            if (iframeBodyText.includes("No data available for the selected filters.")) {
+                                container.remove();
+                            }
+                        };
+                    }
+                });
+            });
+        </script>
+    </div>
 </body>
 </html>
