@@ -388,11 +388,12 @@
             const hiddenChartsContainer = document.getElementById("hidden-charts");
         
             function loadMoreCharts() {
-                let charts = hiddenChartsContainer.children;
+                let charts = hiddenChartsContainer.querySelectorAll(".chart");
                 let loadedCharts = 0;
         
                 while (chartIndex < charts.length && loadedCharts < chartsPerLoad) {
-                    chartContainer.appendChild(charts[chartIndex]);
+                    let chartToLoad = charts[chartIndex];
+                    chartContainer.appendChild(chartToLoad);
                     loadedCharts++;
                     chartIndex++;
                 }
@@ -449,9 +450,10 @@
                 });
             });
         
-            // Load more charts initially if needed
+            // ✅ Load the first batch of hidden charts
             loadMoreCharts();
         </script>
+        
         
         
 
