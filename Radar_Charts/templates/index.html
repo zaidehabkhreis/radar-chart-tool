@@ -382,37 +382,38 @@
         <div id="overlay" class="overlay"></div>
 
         <script>
-            let chartIndex = 6;
-            const chartsPerLoad = 6;
+            let chartsPerLoad = 6;
             const chartContainer = document.getElementById("chart-container");
             const hiddenChartsContainer = document.getElementById("hidden-charts");
         
             function loadMoreCharts() {
-                let charts = hiddenChartsContainer.querySelectorAll(".chart");
+                let charts = hiddenChartsContainer.children; // Always get dynamic list
                 let loadedCharts = 0;
         
-                while (chartIndex < charts.length && loadedCharts < chartsPerLoad) {
-                    let chartToLoad = charts[chartIndex];
+                while (charts.length > 0 && loadedCharts < chartsPerLoad) {
+                    let chartToLoad = charts[0]; // Always take the first child
                     chartContainer.appendChild(chartToLoad);
                     loadedCharts++;
-                    chartIndex++;
                 }
         
-                // If all charts are loaded, remove the event listener
-                if (chartIndex >= charts.length) {
+                if (hiddenChartsContainer.children.length === 0) {
+                    console.log("All charts loaded. Removing event listener.");
                     window.removeEventListener("scroll", onScroll);
                 }
             }
         
             function onScroll() {
                 const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-                if (scrollTop + clientHeight >= scrollHeight - 10) {
+                if (scrollTop + clientHeight >= scrollHeight - 50) {
                     loadMoreCharts();
                 }
             }
         
-            // Attach the scroll event
+            // ✅ Attach scroll event
             window.addEventListener("scroll", onScroll);
+        
+            // ✅ Load the first batch when the page loads
+            document.addEventListener("DOMContentLoaded", loadMoreCharts);
         
             function openPopup(sheetName) {
                 document.getElementById(`popup-${sheetName}`).style.display = 'block';
@@ -449,9 +450,6 @@
                     }
                 });
             });
-        
-            // ✅ Load the first batch of hidden charts
-            loadMoreCharts();
         </script>
         
         
