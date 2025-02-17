@@ -68,11 +68,6 @@ last_checked_time = 0
 CHECK_INTERVAL = 60 
 unique_pillars = []
 
-# Caching mechanism
-chart_cache = {}
-chart_hashes = {}  
-
-
 def calculate_file_hash(file_stream):
     """Compute the hash of the file to detect changes."""
     file_stream.seek(0)
@@ -83,8 +78,7 @@ def calculate_file_hash(file_stream):
 
 def fetch_latest_excel_if_updated():
     """Fetch the latest spreadsheet from Google Drive only if an update exists."""
-    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time, chart_cache, chart_hashes
-    
+    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
 
     current_time = time.time()
     if current_time - last_checked_time < CHECK_INTERVAL:
@@ -133,10 +127,7 @@ def fetch_latest_excel_if_updated():
         data_dict.update(new_data_dict)
         pillar_avg_scores_dict.update(new_pillar_avg_scores_dict)
 
-        chart_cache.clear()  # Clear cache when new data is fetched
-        chart_hashes.clear()
-        return True
-    
+        return True  # Return True to indicate new data was loaded
 
     except Exception as e:
         print(f"Error fetching spreadsheet: {e}")
@@ -353,11 +344,6 @@ def generate_chart(sheet_name):
         return redirect(url_for('login'))
     applied_filters = get_applied_filters(request)
 
-
-    if sheet_name in chart_cache and sheet_name in chart_hashes:
-        return chart_cache[sheet_name]  # Return cached interactive chart if available
-
-
     if sheet_name not in data_dict:
         return "Sheet not found", 404
 
@@ -501,8 +487,8 @@ def generate_chart(sheet_name):
         showlegend=False,
     )
 
-    chart_cache[sheet_name] = fig  # Cache the interactive chart
     return fig.to_html(full_html=False)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
