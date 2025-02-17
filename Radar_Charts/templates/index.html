@@ -232,6 +232,7 @@
         <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
     </div>
 
+
     <div class="container">
         <h1>Radar Chart Generator</h1>
 
@@ -288,35 +289,35 @@
                 {% for sheet_name in sheets_to_display %}
                     {% set data = data_dict.get(sheet_name, None) %}
                     {% if data is not none and data|length > 0 %}
-                        <div class="chart" id="chart-container-{{ sheet_name }}">
-                            <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" width="100%" height="400"></iframe>
+                        <div class="chart">
+                            <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
                             <p>{{ sheet_name }}</p>
-                        </div>
-
-                        <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
-
-                        <div id="popup-{{ sheet_name }}" class="popup">
-                            <span class="close-btn" onclick="closePopup('{{ sheet_name }}')">×</span>
-                            <div class="popup-title">Engagements for {{ sheet_name }}</div>
-                            <ul>
-                                {% if 'Engagements' in data.columns and not data['Engagements'].isnull().all() %}
-                                    {% set all_engagements = [] %}
-                                    {% for engagement_list in data['Engagements'] %}
-                                        {% if engagement_list and engagement_list is string %}
-                                            {% set engagements = engagement_list.split(',') %}
-                                            {% for engagement in engagements %}
-                                                {% set engagement_cleaned = engagement.strip() %}
-                                                {% if engagement_cleaned not in all_engagements %}
-                                                    {% set _ = all_engagements.append(engagement_cleaned) %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% endif %}
-                                    {% endfor %}
-                                    {% for engagement in all_engagements %}
-                                        <li>{{ engagement }}</li>
-                                    {% endfor %}
-                                {% endif %}
-                            </ul>
+        
+                            <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
+        
+                            <div id="popup-{{ sheet_name }}" class="popup">
+                                <span class="close-btn" onclick="closePopup('{{ sheet_name }}')">×</span>
+                                <div class="popup-title">Engagements for {{ sheet_name }}</div>
+                                <ul>
+                                    {% if 'Engagements' in data.columns and not data['Engagements'].isnull().all() %}
+                                        {% set all_engagements = [] %}
+                                        {% for engagement_list in data['Engagements'] %}
+                                            {% if engagement_list and engagement_list is string %}
+                                                {% set engagements = engagement_list.split(',') %}
+                                                {% for engagement in engagements %}
+                                                    {% set engagement_cleaned = engagement.strip() %}
+                                                    {% if engagement_cleaned not in all_engagements %}
+                                                        {% set _ = all_engagements.append(engagement_cleaned) %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% for engagement in all_engagements %}
+                                            <li>{{ engagement }}</li>
+                                        {% endfor %}
+                                    {% endif %}
+                                </ul>
+                            </div>
                         </div>
                     {% endif %}
                 {% endfor %}
@@ -324,6 +325,8 @@
                 <p>No charts available for the selected criteria.</p>
             {% endif %}
         </div>
+        
+        
 
         <div id="overlay" class="overlay"></div>
 
@@ -346,26 +349,31 @@
         </script>
     </div>
 
+
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
+        // Wait for the DOM to load
+            document.addEventListener("DOMContentLoaded", () => {
+            // Select all chart containers
             const chartContainers = document.querySelectorAll(".chart");
 
+            // Loop through each container
             chartContainers.forEach(container => {
                 const iframe = container.querySelector("iframe");
 
-                iframe.onload = () => {
-                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                    const iframeBodyText = iframeDoc.body?.textContent || "";
+                // Check if iframe content has "No data available for the selected filters."
+                if (iframe) {
+                    iframe.onload = () => {
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        const iframeBodyText = iframeDoc.body?.textContent || "";
 
-                    if (iframeBodyText.includes("No data available for the selected filters.")) {
-                        container.remove();
-                    }
-                };
+                        // If the text contains the undesired phrase, remove the container
+                        if (iframeBodyText.includes("No data available for the selected filters.")) {
+                            container.remove();
+                        }
+                    };
+                }
             });
         });
     </script>
-
 </body>
-
-
 </html>

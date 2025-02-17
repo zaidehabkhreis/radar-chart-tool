@@ -10,12 +10,10 @@ import io
 import time
 import hashlib
 from google.cloud import storage
-from flask_caching import Cache
 
 
 
 app = Flask(__name__)
-cache = Cache(app, config={'CACHE_TYPE': 'simple'})  # Use simple in-memory caching
 
 
 
@@ -69,8 +67,6 @@ latest_hash = None
 last_checked_time = 0
 CHECK_INTERVAL = 60 
 unique_pillars = []
-chart_cache = {}
-
 
 def calculate_file_hash(file_stream):
     """Compute the hash of the file to detect changes."""
@@ -340,16 +336,13 @@ def index():
 
 
 
-@app.route('/api/chart/<sheet_name>')
+@app.route('/chart/<sheet_name>')
 def generate_chart(sheet_name):
         
     user = get_authenticated_user(request)
     if not user:
         return redirect(url_for('login'))
     applied_filters = get_applied_filters(request)
-
-    if sheet_name in chart_cache:
-        return chart_cache[sheet_name]  # Return cached chart HTML
 
     if sheet_name not in data_dict:
         return "Sheet not found", 404
@@ -494,12 +487,7 @@ def generate_chart(sheet_name):
         showlegend=False,
     )
 
-    chart_html = fig.to_html(full_html=False)
-    
-    # Store in cache
-    chart_cache[sheet_name] = chart_html
-
-    return chart_html
+    return fig.to_html(full_html=False)
 
 
 if __name__ == '__main__':
