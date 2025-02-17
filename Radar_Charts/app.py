@@ -138,8 +138,8 @@ def fetch_latest_excel_if_updated():
 
 @app.before_request
 def check_for_updates():
-    """Check for spreadsheet updates only when needed."""
-    fetch_latest_excel_if_updated()  
+    if request.endpoint in ["index", "generate_chart"]:
+        fetch_latest_excel_if_updated()
 
 def get_authenticated_user(request):
     """Check if the user is authenticated via cookies."""
