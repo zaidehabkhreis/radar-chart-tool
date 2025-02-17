@@ -289,7 +289,8 @@
                     {% set data = data_dict.get(sheet_name, None) %}
                     {% if data is not none and data|length > 0 %}
                         <div class="chart" id="chart-container-{{ sheet_name }}">
-                            <p>Loading chart for {{ sheet_name }}...</p>
+                            <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" width="100%" height="400"></iframe>
+                            <p>{{ sheet_name }}</p>
                         </div>
 
                         <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
@@ -350,27 +351,21 @@
             const chartContainers = document.querySelectorAll(".chart");
 
             chartContainers.forEach(container => {
-                const sheetName = container.id.replace("chart-container-", "");
-                const encodedSheetName = encodeURIComponent(sheetName);  // Ensure proper URL encoding
+                const iframe = container.querySelector("iframe");
 
-                fetch(`/api/chart/${encodedSheetName}`)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error("Chart not found");
-                        }
-                        return response.text();
-                    })
-                    .then(chartHTML => {
-                        container.innerHTML = chartHTML;
-                    })
-                    .catch(error => {
-                        console.error("Chart Load Error:", error);
-                        container.innerHTML = `<iframe src="{{ url_for('generate_chart', sheet_name='') }}${encodedSheetName}" frameborder="0" width="100%" height="400"></iframe>`;
-                    });
+                iframe.onload = () => {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const iframeBodyText = iframeDoc.body?.textContent || "";
+
+                    if (iframeBodyText.includes("No data available for the selected filters.")) {
+                        container.remove();
+                    }
+                };
             });
         });
     </script>
 
 </body>
+
 
 </html>
