@@ -340,7 +340,7 @@ def index():
 
 
 
-@app.route('/chart/<sheet_name>')
+@app.route('/api/chart/<sheet_name>')
 def generate_chart(sheet_name):
         
     user = get_authenticated_user(request)

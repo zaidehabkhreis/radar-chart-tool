@@ -351,22 +351,26 @@
 
             chartContainers.forEach(container => {
                 const sheetName = container.id.replace("chart-container-", "");
-                fetch(`/api/chart/${sheetName}`)
-                    .then(response => response.text())
-                    .then(chartHTML => {
-                        if (chartHTML.includes("No data available for the selected filters.")) {
-                            container.remove();
-                        } else {
-                            container.innerHTML = chartHTML;
+                const encodedSheetName = encodeURIComponent(sheetName);  // Ensure proper URL encoding
+
+                fetch(`/api/chart/${encodedSheetName}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error("Chart not found");
                         }
+                        return response.text();
+                    })
+                    .then(chartHTML => {
+                        container.innerHTML = chartHTML;
                     })
                     .catch(error => {
                         console.error("Chart Load Error:", error);
-                        container.innerHTML = "<p>Error loading chart.</p>";
+                        container.innerHTML = `<iframe src="{{ url_for('generate_chart', sheet_name='') }}${encodedSheetName}" frameborder="0" width="100%" height="400"></iframe>`;
                     });
             });
         });
     </script>
+
 </body>
 
 </html>
