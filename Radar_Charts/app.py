@@ -70,6 +70,8 @@ unique_pillars = []
 
 # Caching mechanism
 chart_cache = {}
+chart_hashes = {}  
+
 
 def calculate_file_hash(file_stream):
     """Compute the hash of the file to detect changes."""
@@ -81,7 +83,7 @@ def calculate_file_hash(file_stream):
 
 def fetch_latest_excel_if_updated():
     """Fetch the latest spreadsheet from Google Drive only if an update exists."""
-    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time, chart_cache
+    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time, chart_cache, chart_hashes
     
 
     current_time = time.time()
@@ -132,6 +134,7 @@ def fetch_latest_excel_if_updated():
         pillar_avg_scores_dict.update(new_pillar_avg_scores_dict)
 
         chart_cache.clear()  # Clear cache when new data is fetched
+        chart_hashes.clear()
         return True
     
 
@@ -351,8 +354,8 @@ def generate_chart(sheet_name):
     applied_filters = get_applied_filters(request)
 
 
-    if sheet_name in chart_cache:
-        return chart_cache[sheet_name].to_html(full_html=False)  # Return cached interactive chart if available
+    if sheet_name in chart_cache and sheet_name in chart_hashes:
+        return chart_cache[sheet_name]  # Return cached interactive chart if available
 
 
     if sheet_name not in data_dict:
