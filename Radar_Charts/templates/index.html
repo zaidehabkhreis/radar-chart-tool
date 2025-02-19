@@ -386,6 +386,7 @@
     <meta charset="UTF-8">
     <title>Radar Chart Generator</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
     <style>
         /* -------------------- Basic Styles -------------------- */
         body {
@@ -479,18 +480,41 @@
             background: #f9f9f9;
             border-radius: 8px;
             text-align: center;
-            flex: 0 1 calc(50% - 20px); /* two per row in large screens */
+            /* ensure the container has enough space even before the chart loads */
+            min-height: 450px; 
             box-sizing: border-box;
+            position: relative; /* for spinner positioning */
+            flex: 0 1 calc(50% - 20px);
             margin-bottom: 20px;
-        }
-        .chart iframe {
-            width: 100%;
-            height: 400px;
-            display: none; /* hide until loaded */
         }
         .chart p {
             margin-top: 5px;
             font-weight: bold;
+        }
+
+        /* HIDE iframe by default; we show it after it loads successfully */
+        .chart iframe {
+            width: 100%;
+            height: 400px;
+            display: none;
+        }
+
+        /* -------------------- Loading Spinner -------------------- */
+        /* We'll place a spinner in the center of each chart while loading. */
+        .spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 6px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top-color: #007bff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         /* -------------------- Popup (Engagements) -------------------- */
@@ -555,7 +579,6 @@
         button:hover {
             background: #0056b3;
         }
-
     </style>
 </head>
 <body>
@@ -649,30 +672,45 @@
             document.getElementById('overlay').style.display = 'none';
         }
 
-        // After each batch is added, we call this to remove charts where iframe says "No data available..."
+        let offset = 0;
+        const limit = 6;  // how many charts per load
+        let loading = false;
+
+        // After each batch is appended, we do two things:
+        // 1) Insert a spinner element in each chart
+        // 2) If the iframe loads successfully, remove spinner and show iframe;
+        //    If "No data..." is found, remove the entire chart.
         function removeInvalidCharts(parentDiv) {
             const chartContainers = parentDiv.querySelectorAll(".chart");
             chartContainers.forEach(container => {
+                // Insert a spinner if not already present
+                if (!container.querySelector(".spinner")) {
+                    const spinnerDiv = document.createElement("div");
+                    spinnerDiv.className = "spinner";
+                    container.appendChild(spinnerDiv);
+                }
+
                 const iframe = container.querySelector("iframe");
                 if (iframe) {
                     iframe.onload = () => {
-                        // Wait for the iFrame to load, then check its text
+                        // Check content
                         const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                         const iframeBodyText = iframeDoc.body ? iframeDoc.body.textContent : "";
                         if (iframeBodyText.includes("No data available for the selected filters.")) {
+                            // If invalid, remove container entirely
                             container.remove();
                         } else {
-                            // Show the iframe if it is valid
+                            // If valid, remove spinner, show iframe
+                            const spinner = container.querySelector(".spinner");
+                            if (spinner) {
+                                spinner.remove();
+                            }
                             iframe.style.display = "block";
                         }
                     };
                 }
             });
         }
-
-        let offset = 0;
-        const limit = 6;  // how many charts per load
-        let loading = false;
 
         // Load next batch of charts from /load_charts
         async function loadNextBatch() {
@@ -689,7 +727,7 @@
                 if (resp.ok) {
                     let htmlSnippet = await resp.text();
 
-                    // If there's nothing in the snippet, no more charts
+                    // If there's nothing, no more charts
                     if (!htmlSnippet.trim()) {
                         window.removeEventListener('scroll', handleScroll);
                         return;
@@ -699,14 +737,14 @@
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = htmlSnippet;
 
+                    // Append the chunk
                     while (tempDiv.firstChild) {
                         container.appendChild(tempDiv.firstChild);
                     }
 
-                    // Now remove invalid charts
+                    // Remove invalid charts (or show them if valid)
                     removeInvalidCharts(container);
 
-                    // Increase offset
                     offset += limit;
                 }
             } catch (e) {
@@ -722,21 +760,20 @@
             let scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
             let clientHeight = document.documentElement.clientHeight || window.innerHeight;
 
-            // if near the bottom
             if (scrollTop + clientHeight + 300 >= scrollHeight) {
                 loadNextBatch();
             }
         }
 
-        // On DOMContentLoaded, load first batch and set up the scroll handler
+        // On DOMContentLoaded, load first batch and set up scroll handler
         document.addEventListener("DOMContentLoaded", () => {
             loadNextBatch();
             window.addEventListener("scroll", handleScroll);
         });
     </script>
-
 </body>
 </html>
+
 
 
 
