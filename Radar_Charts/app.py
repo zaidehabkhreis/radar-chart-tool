@@ -538,7 +538,7 @@ data_dict = {}                 # { sheet_name -> DataFrame }
 pillar_avg_scores_dict = {}    # { sheet_name -> DataFrame of Pillar vs Avg(Score) }
 latest_hash = None
 last_checked_time = 0
-unique_pillars = []            # store unique pillars across all sheets
+unique_pillars = []            # to store unique pillars across all sheets
 
 # --------------------------------------------------------------------------------------
 # User management from GCS
@@ -643,7 +643,7 @@ def fetch_latest_excel_if_updated():
     global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
 
     current_time = time.time()
-    # Check if enough seconds passed since last check
+    # Check if 60 seconds passed since last check
     if current_time - last_checked_time < CHECK_INTERVAL:
         return False
 
@@ -812,7 +812,8 @@ def index():
     # Check if user typed a search name
     search_name = request.args.get('search_name', '').lower()
 
-    # We do NOT load the charts here directly. We'll do infinite scroll.
+    # We do NOT load the charts here. We'll do infinite scroll.
+    # We just render the template with pillars, filters, search name, etc.
     return render_template(
         'index.html',
         pillars=unique_pillars,
@@ -852,10 +853,7 @@ def load_charts():
     for sheet_name in chunk:
         df = data_dict[sheet_name]
         snippet += f"""
-        <div class="chart loading">
-            <!-- Spinner shown while loading -->
-            <div class="spinner"></div>
-
+        <div class="chart">
             <iframe src="{url_for('generate_chart', sheet_name=sheet_name)}" frameborder="0"></iframe>
             <p>{sheet_name}</p>
 
@@ -1058,7 +1056,6 @@ def generate_chart(sheet_name):
 # --------------------------------------------------------------------------------------
 if __name__ == '__main__':
     app.run(debug=True)
-
 
 
 
