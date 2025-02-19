@@ -290,7 +290,7 @@
                     {% set data = data_dict.get(sheet_name, None) %}
                     {% if data is not none and data|length > 0 %}
                         <div class="chart">
-                            <iframe src="{{ url_for('chart_view', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
+                            <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
                             <p>{{ sheet_name }}</p>
         
                             <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>

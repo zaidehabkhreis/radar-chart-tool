@@ -350,6 +350,7 @@ def index():
 
 
 @lru_cache(maxsize=128)
+@app.route('/chart/<sheet_name>')
 def generate_chart(sheet_name):
         
     user = get_authenticated_user(request)
@@ -504,11 +505,6 @@ def generate_chart(sheet_name):
 
 
 
-
-@app.route('/chart/<sheet_name>')
-def chart_view(sheet_name):
-    """Wrapper for chart generation to support caching."""
-    return generate_chart(sheet_name)
 
 
 
