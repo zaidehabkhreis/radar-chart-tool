@@ -10,7 +10,8 @@ import io
 import time
 import hashlib
 from google.cloud import storage
-
+from functools import lru_cache
+import pickle
 
 
 app = Flask(__name__)
@@ -334,17 +335,8 @@ def index():
 
 
 
-
-
-
-@app.route('/chart/<sheet_name>')
-def generate_chart(sheet_name):
-        
-    user = get_authenticated_user(request)
-    if not user:
-        return redirect(url_for('login'))
-    applied_filters = get_applied_filters(request)
-
+@lru_cache(maxsize=100)
+def cached_generate_chart(sheet_name, applied_filters):
     if sheet_name not in data_dict:
         return "Sheet not found", 404
 
@@ -489,6 +481,28 @@ def generate_chart(sheet_name):
     )
 
     return fig.to_html(full_html=False)
+
+
+
+
+
+
+@app.route('/chart/<sheet_name>')
+def generate_chart(sheet_name):
+        
+    user = get_authenticated_user(request)
+    if not user:
+        return redirect(url_for('login'))
+    applied_filters = get_applied_filters(request)
+
+    # If the spreadsheet was updated, clear the cache
+    global latest_hash
+    if latest_hash is None or latest_hash != calculate_file_hash(io.BytesIO()):
+        cached_generate_chart.cache_clear()
+        latest_hash = calculate_file_hash(io.BytesIO())
+
+    # Return cached chart if available
+    return cached_generate_chart(sheet_name, tuple(applied_filters), latest_hash)
 
 
 if __name__ == '__main__':
