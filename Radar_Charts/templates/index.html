@@ -290,9 +290,9 @@
                     {% set data = data_dict.get(sheet_name, None) %}
                     {% if data is not none and data|length > 0 %}
                         <div class="chart">
-                            <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>                            
+                            <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
                             <p>{{ sheet_name }}</p>
-                            
+        
                             <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
         
                             <div id="popup-{{ sheet_name }}" class="popup">
@@ -352,33 +352,28 @@
 
     <script>
         // Wait for the DOM to load
-        document.addEventListener("DOMContentLoaded", () => {
+            document.addEventListener("DOMContentLoaded", () => {
             // Select all chart containers
             const chartContainers = document.querySelectorAll(".chart");
-    
+
             // Loop through each container
             chartContainers.forEach(container => {
                 const iframe = container.querySelector("iframe");
-    
+
                 // Check if iframe content has "No data available for the selected filters."
                 if (iframe) {
                     iframe.onload = () => {
-                        try {
-                            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                            const iframeBodyText = iframeDoc.body?.textContent || "";
-    
-                            // If the text contains the undesired phrase, remove the container
-                            if (iframeBodyText.includes("No data available for the selected filters.")) {
-                                container.style.display = 'none';
-                            }
-                        } catch (e) {
-                            console.error("Error checking iframe content:", e);
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        const iframeBodyText = iframeDoc.body?.textContent || "";
+
+                        // If the text contains the undesired phrase, remove the container
+                        if (iframeBodyText.includes("No data available for the selected filters.")) {
+                            container.remove();
                         }
                     };
                 }
             });
         });
     </script>
-    
 </body>
 </html>
