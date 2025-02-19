@@ -34,6 +34,14 @@ else:
 drive_service = build("drive", "v3", credentials=credentials)
 
 
+
+# Cache invalidation function
+def clear_cache():
+    """Clears the cached chart data to ensure updated charts after data changes."""
+    generate_chart.cache_clear()  # Clears the LRU cache
+
+
+
 def fetch_users_from_gcs():
     """Fetch the users JSON file from Google Cloud Storage."""
     bucket = storage_client.bucket(BUCKET_NAME)
@@ -129,6 +137,8 @@ def fetch_latest_excel_if_updated():
         # Update global variables only if data has changed
         data_dict.update(new_data_dict)
         pillar_avg_scores_dict.update(new_pillar_avg_scores_dict)
+
+        clear_cache()  # Invalidate cache when new data is loaded
 
         return True  # Return True to indicate new data was loaded
 
@@ -340,7 +350,7 @@ def index():
 
 
 
-@lru_cache(maxsize=40)
+@lru_cache(maxsize=128)
 def generate_chart_cached(sheet_name):
         
     user = get_authenticated_user(request)
@@ -492,6 +502,16 @@ def generate_chart_cached(sheet_name):
     )
 
     return fig.to_html(full_html=False)
+
+
+
+
+
+@app.route('/chart/<sheet_name>')
+def generate_chart(sheet_name):
+    """Wrapper function for the cached chart generation."""
+    return generate_chart_cached(sheet_name)
+
 
 
 
