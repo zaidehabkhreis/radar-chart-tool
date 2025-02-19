@@ -475,54 +475,59 @@
             justify-content: center;
         }
 
-        /*
-         Make .chart a flex container so we can pin the name/button at the bottom.
+        /* 
+         .chart is a flex container
+         so name + button can remain at the bottom 
+         while we center the spinner + iframe in the middle. 
         */
         .chart {
             border: 1px solid #ddd;
             border-radius: 8px;
             background: #f9f9f9;
             display: flex;
-            flex-direction: column;  /* stack contents vertically */
-            justify-content: flex-start;
-            align-items: center;     /* center horizontally */
-            width: calc(50% - 20px); /* two per row on large screens */
-            min-height: 450px;       /* ensure consistent space even before chart loads */
+            flex-direction: column;
+            align-items: center;
+            width: calc(50% - 20px);
+            min-height: 450px; /* consistent space for chart */
             box-sizing: border-box;
             padding: 10px;
-            position: relative;
         }
 
-        /* This wrapper holds the middle “chart area”, including spinner or iframe. */
+        /* Middle area (spinner + iframe) grows. */
         .chart-mid {
-            flex: 1;
+            flex: 1;              /* fill vertical space */
+            width: 100%;          
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 100%;
-            position: relative;
+            position: relative;    /* for spinner positioning if needed */
         }
 
-        /* The iframe is hidden initially; we reveal it after successful load. */
+        /* The chart itself. Hidden until loaded. */
         .chart-mid iframe {
-            display: none;
             width: 100%;
-            height: 400px;
+            height: 400px; /* fix the chart height so it doesn't appear small then grow. */
+            display: none; /* hidden until it's loaded */
         }
 
-        /* The bottom area with name + button is pinned after the middle flex. */
+        /* The bottom area: name + "Show Engagements" */
         .chart-footer {
-            margin-top: 10px; /* small gap above button/name */
+            margin-top: 10px;
         }
 
-        /* -------------------- Static Loading Icon -------------------- */
-        .static-loader {
+        /* -------------------- Moving Spinner -------------------- */
+        .spinner {
             width: 60px;
             height: 60px;
-            background-color: #ddd;
+            border: 8px solid #ccc;   
+            border-top: 8px solid #007bff;
             border-radius: 50%;
-            border: 6px solid #007bff;
-            /* no animation, just a static circle */
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         /* -------------------- Popup (Engagements) -------------------- */
@@ -664,7 +669,7 @@
     </div>
 
     <script>
-        // Function to remove a filter
+        // Remove filter
         function removeFilter(filter) {
             const url = new URL(window.location.href);
             url.searchParams.append('remove_filter', filter);
@@ -685,47 +690,42 @@
         const limit = 6;  // how many charts per load
         let loading = false;
 
-        // After each batch is appended, add a static loader to the center of the .chart-mid,
-        // then show iframe if valid or remove container if no data.
-        function processCharts(parentDiv) {
+        // Put a spinner in each chart, then handle success/failure on iframe load
+        function handleCharts(parentDiv) {
             const chartContainers = parentDiv.querySelectorAll(".chart");
             chartContainers.forEach(container => {
-                // We assume the snippet includes: .chart -> .chart-mid -> iframe ... plus name+button
-                // If not, we can create .chart-mid ourselves. For now, let's do it dynamically:
-
-                // 1) Wrap the existing iframe in a <div class="chart-mid"> if not present:
+                // We'll find the iframe
                 let iframe = container.querySelector("iframe");
-                if (!iframe) return; // no iframe?
+                if (!iframe) return;
 
-                // If there's no .chart-mid, create it
+                // Create a div.chart-mid if not existing
                 if (!container.querySelector(".chart-mid")) {
-                    // We'll move the iframe inside
-                    const chartMidDiv = document.createElement("div");
-                    chartMidDiv.className = "chart-mid";
-                    // Insert chartMidDiv as first child
-                    container.insertBefore(chartMidDiv, container.firstChild);
-                    chartMidDiv.appendChild(iframe); // move iframe inside
+                    const chartMid = document.createElement("div");
+                    chartMid.className = "chart-mid";
+                    // Move the iframe into chartMid
+                    container.insertBefore(chartMid, container.firstChild);
+                    chartMid.appendChild(iframe);
                 }
 
-                // 2) Insert a static loader in the .chart-mid if not already present
-                const chartMid = container.querySelector(".chart-mid");
-                if (!chartMid.querySelector(".static-loader")) {
-                    const loader = document.createElement("div");
-                    loader.className = "static-loader";
-                    chartMid.appendChild(loader);
+                // Insert spinner if not present
+                let chartMid = container.querySelector(".chart-mid");
+                if (!chartMid.querySelector(".spinner")) {
+                    const spinnerDiv = document.createElement("div");
+                    spinnerDiv.className = "spinner";
+                    chartMid.appendChild(spinnerDiv);
                 }
 
-                // 3) On iframe load, check if it's valid
+                // On iframe load
                 iframe.onload = () => {
                     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                     const iframeBodyText = iframeDoc.body ? iframeDoc.body.textContent : "";
                     if (iframeBodyText.includes("No data available for the selected filters.")) {
-                        container.remove();
+                        container.remove(); // remove invalid chart
                     } else {
-                        // valid => remove loader, show iframe
-                        let loaderEl = chartMid.querySelector(".static-loader");
-                        if (loaderEl) {
-                            loaderEl.remove();
+                        // remove spinner, show iframe
+                        let spin = chartMid.querySelector(".spinner");
+                        if (spin) {
+                            spin.remove();
                         }
                         iframe.style.display = "block";
                     }
@@ -747,8 +747,8 @@
                 if (resp.ok) {
                     let htmlSnippet = await resp.text();
 
-                    // If there's nothing, no more charts
                     if (!htmlSnippet.trim()) {
+                        // no more charts
                         window.removeEventListener('scroll', handleScroll);
                         return;
                     }
@@ -757,13 +757,13 @@
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = htmlSnippet;
 
-                    // Append the chunk
+                    // Append the new chunk
                     while (tempDiv.firstChild) {
                         container.appendChild(tempDiv.firstChild);
                     }
 
-                    // Now add loader / remove invalid
-                    processCharts(container);
+                    // Insert spinner / handle iframes
+                    handleCharts(container);
 
                     offset += limit;
                 }
@@ -774,7 +774,7 @@
             }
         }
 
-        // On scroll, if near bottom, load next batch
+        // On scroll, load more if near bottom
         function handleScroll() {
             let scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
             let scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
@@ -785,7 +785,6 @@
             }
         }
 
-        // On DOMContentLoaded, load first batch and set up scroll
         document.addEventListener("DOMContentLoaded", () => {
             loadNextBatch();
             window.addEventListener("scroll", handleScroll);
