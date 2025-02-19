@@ -323,6 +323,20 @@ def index():
     if search_name:
         sheets_to_display = [sheet for sheet in sheets_to_display if sheet.lower() == search_name]
 
+
+    data_version = latest_hash or "no_hash_yet"
+    charts_html = {}
+
+    for sheet_name in sheets_to_display:
+        # Call our LRU-cached function
+        html_or_message = build_chart(
+            sheet_name=sheet_name,
+            applied_filters=tuple(applied_filters),
+            data_version=data_version
+        )
+        charts_html[sheet_name] = html_or_message
+
+
     return render_template(
         'index.html',
         pillars=unique_pillars,
@@ -330,7 +344,8 @@ def index():
         applied_filters=applied_filters,
         data_dict=data_dict,
         search_name=search_name,
-        user=user
+        user=user,
+        charts_html=charts_html
     )
 
 
@@ -516,7 +531,7 @@ def build_chart(sheet_name, applied_filters, data_version):
 
 
 
-@app.route('/chart/<sheet_name>')
+#@app.route('/chart/<sheet_name>')
 def generate_chart(sheet_name):
     user = get_authenticated_user(request)
     if not user:
