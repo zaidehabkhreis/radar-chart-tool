@@ -10,6 +10,7 @@ import io
 import time
 import hashlib
 from google.cloud import storage
+from functools import lru_cache
 
 
 
@@ -337,30 +338,38 @@ def index():
 
 
 
-@app.route('/chart/<sheet_name>')
-def generate_chart(sheet_name):
-        
-    user = get_authenticated_user(request)
-    if not user:
-        return redirect(url_for('login'))
-    applied_filters = get_applied_filters(request)
 
+
+
+
+@lru_cache(maxsize=128)
+def build_chart(sheet_name, applied_filters, data_version):
+    """
+    Build and return the chart HTML for the given sheet_name,
+    applied_filters, and data_version.
+    """
+    # -- Access the global data (data_dict) here or pass them in --
+    global data_dict, pillar_avg_scores_dict
+
+    # 1) Grab the relevant DataFrame
     if sheet_name not in data_dict:
-        return "Sheet not found", 404
+        return "Sheet not found"
 
     data = data_dict[sheet_name].copy()
-
     if 'Score' not in data.columns or 'Pillar' not in data.columns:
-        return "Invalid data format for chart generation.", 404
+        return "Invalid data format for chart generation."
 
+    # 2) Apply the filtering logic (the same logic you had in generate_chart)
+    #    This verifies that the data is not filtered out entirely
     avg_scores = data.groupby('Pillar')['Score'].mean().round(1).reset_index()
 
+    # Check each filter
+    import re
     for filter_str in applied_filters:
         try:
             if not filter_str.startswith("Pillar: "):
                 continue
 
-            import re
             match = re.match(r"Pillar: (.+) (>|<|=|>=|<=) ([0-9.]+)", filter_str)
             if not match:
                 continue
@@ -370,40 +379,49 @@ def generate_chart(sheet_name):
             value = float(match.group(3))
 
             if pillar not in avg_scores['Pillar'].values:
-                return "No data available for the selected filters.", 404
+                return "No data available for the selected filters."
 
             avg_score = avg_scores.loc[avg_scores['Pillar'] == pillar, 'Score'].values[0]
 
             if operator == '>' and not avg_score > value:
-                return "No data available for the selected filters.", 404
+                return "No data available for the selected filters."
             elif operator == '<' and not avg_score < value:
-                return "No data available for the selected filters.", 404
+                return "No data available for the selected filters."
             elif operator == '=' and not avg_score == value:
-                return "No data available for the selected filters.", 404
+                return "No data available for the selected filters."
             elif operator == '>=' and not avg_score >= value:
-                return "No data available for the selected filters.", 404
+                return "No data available for the selected filters."
             elif operator == '<=' and not avg_score <= value:
-                return "No data available for the selected filters.", 404
+                return "No data available for the selected filters."
 
         except Exception as e:
             print(f"Error applying filter {filter_str}: {e}")
-            return "Error applying filters.", 400
+            return "Error applying filters."
+
+    # 3) If the data is valid, build the Plotly figure
+    import plotly.graph_objects as go
 
     fig = go.Figure()
     categories = avg_scores['Pillar'].tolist()
     values = avg_scores['Score'].tolist()
 
+    # Close the loop for the radar chart
     categories.append(categories[0])
     values.append(values[0])
 
+    # Build the hover data (same logic you already have)
     hover_data = []
     for pillar in categories:
         pillar_data = data[data['Pillar'] == pillar]
         specific_skills = pillar_data['Specific Skill'].tolist()
         scores = pillar_data['Score'].tolist()
-        hover_info = f"Averaged Score: {avg_scores.loc[avg_scores['Pillar'] == pillar, 'Score'].values[0]}<br>"
-        hover_info += f"Attribute: {pillar}<br>"
-        hover_info += "<br>".join([f"<span style='font-size: 10px;'>{skill}: {score}</span>" for skill, score in zip(specific_skills, scores)])
+        if pillar in avg_scores['Pillar'].values:
+            average_for_pillar = avg_scores.loc[avg_scores['Pillar'] == pillar, 'Score'].values[0]
+        else:
+            average_for_pillar = 'N/A'
+        hover_info = f"Averaged Score: {average_for_pillar}<br>Attribute: {pillar}<br>"
+        hover_info += "<br>".join([f"<span style='font-size: 10px;'>{skill}: {score}</span>" 
+                                   for skill, score in zip(specific_skills, scores)])
         hover_data.append(hover_info)
 
     fig.add_trace(go.Scatterpolar(
@@ -415,27 +433,30 @@ def generate_chart(sheet_name):
         text=hover_data
     ))
 
+    # 4) Capacity / Utilization logic
     capacity = int((data.loc[0, 'Capacity'] if 'Capacity' in data.columns and not data.empty else 0) * 100)
     utilization = int((data.loc[0, 'Utilization'] if 'Utilization' in data.columns and not data.empty else 0) * 100)
 
+    # Decide the color based on thresholds
     if capacity <= 50:
-        capacity_color = '#6EC664'  
+        capacity_color = '#6EC664'
     elif capacity <= 80:
-        capacity_color = '#FFCB6B'  
+        capacity_color = '#FFCB6B'
     elif capacity <= 95:
-        capacity_color = '#DC7633'  
+        capacity_color = '#DC7633'
     else:
-        capacity_color = '#E74C3C' 
+        capacity_color = '#E74C3C'
 
     if utilization <= 50:
-        utilization_color = '#E74C3C'  
+        utilization_color = '#E74C3C'
     elif utilization <= 80:
-        utilization_color = '#DC7633'  
+        utilization_color = '#DC7633'
     elif utilization <= 95:
-        utilization_color = '#FFCB6B'  
+        utilization_color = '#FFCB6B'
     else:
         utilization_color = '#6EC664'
 
+    # Annotations for capacity / utilization
     fig.add_annotation(
         x=0.08,
         y=-0.25,
@@ -489,6 +510,44 @@ def generate_chart(sheet_name):
     )
 
     return fig.to_html(full_html=False)
+
+
+
+
+
+
+@app.route('/chart/<sheet_name>')
+def generate_chart(sheet_name):
+    user = get_authenticated_user(request)
+    if not user:
+        return redirect(url_for('login'))
+    
+    applied_filters = get_applied_filters(request)
+
+    if sheet_name not in data_dict:
+        return "Sheet not found", 404
+
+    # Use your "latest_hash" as the data_version
+    data_version = latest_hash or "no_hash_yet"
+
+    # Call the LRU-cached function
+    chart_html = build_chart(
+        sheet_name=sheet_name,
+        applied_filters=tuple(applied_filters),
+        data_version=data_version
+    )
+
+    # If the returned HTML indicates "Sheet not found" or "Invalid data," 
+    # you can return the response with the appropriate status code.
+    if chart_html in ["Sheet not found", 
+                      "Invalid data format for chart generation.", 
+                      "No data available for the selected filters."]:
+        return chart_html, 404
+    elif chart_html == "Error applying filters.":
+        return chart_html, 400
+
+    return chart_html
+
 
 
 if __name__ == '__main__':
