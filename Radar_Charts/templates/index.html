@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -290,21 +290,8 @@
                     {% set data = data_dict.get(sheet_name, None) %}
                     {% if data is not none and data|length > 0 %}
                         <div class="chart">
-                            {# 
-                               Embed the chart HTML directly. 
-                               We use "|safe" so Jinja doesn't escape HTML. 
-                            #}
-                            {% set chart_output = charts_html[sheet_name] %}
-                            
-                            {% if chart_output in ["Sheet not found",
-                                                   "Invalid data format for chart generation.",
-                                                   "No data available for the selected filters.",
-                                                   "Error applying filters."] %}
-                                <p>{{ chart_output }}</p>  <!-- Show error message instead of chart -->
-                            {% else %}
-                                {{ chart_output|safe }} <!-- Embed the Plotly HTML -->
-                                <p>{{ sheet_name }}</p>
-                            {% endif %}
+                            <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
+                            <p>{{ sheet_name }}</p>
         
                             <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
         
@@ -389,4 +376,369 @@
         });
     </script>
 </body>
+</html> -->
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Radar Chart Generator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* -------------------- Basic Styles -------------------- */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px 8px 0 0;
+            font-size: 18px;
+        }
+        .logout-btn {
+            background: red;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .logout-btn:hover {
+            background: darkred;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        /* -------------------- Filter/Search Forms -------------------- */
+        .filter-section {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .filter-section > div {
+            margin-right: 10px;
+        }
+
+        .search-container {
+            margin-bottom: 15px;
+        }
+        .search-container input[type="text"] {
+            width: 300px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+
+        .applied-filters .filter {
+            display: inline-block;
+            padding: 5px 10px;
+            margin-right: 5px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+        .applied-filters .filter .remove-filter {
+            cursor: pointer;
+            margin-left: 5px;
+            color: red;
+        }
+
+        /* -------------------- Charts Container -------------------- */
+        .charts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        .chart {
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            text-align: center;
+            flex: 0 1 calc(50% - 20px); /* two per row in large screens */
+            box-sizing: border-box;
+            margin-bottom: 20px;
+        }
+        .chart iframe {
+            width: 100%;
+            height: 400px;
+            display: none; /* hide until loaded */
+        }
+        .chart p {
+            margin-top: 5px;
+            font-weight: bold;
+        }
+
+        /* -------------------- Popup (Engagements) -------------------- */
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            max-height: 300px;
+            overflow-y: auto;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            z-index: 1000;
+        }
+        .popup .close-btn {
+            display: block;
+            text-align: right;
+            font-size: 24px;
+            color: #333;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .popup .popup-title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        .popup ul {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+        .popup ul li {
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        /* -------------------- Buttons -------------------- */
+        button {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Top bar -->
+    <div class="top-bar">
+        <span>Welcome, {{ user.split('.')[0].capitalize() }}</span>
+        <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    </div>
+
+    <!-- Main container -->
+    <div class="container">
+        <h1>Radar Chart Generator</h1>
+
+        {% if user == "tariq.khasawneh@devoteam.com" %}
+        <a href="{{ url_for('manage_users') }}">
+            <button style="background: #28a745; margin-bottom: 20px;">Edit Users</button>
+        </a>
+        {% endif %}
+
+        <!-- Filter form -->
+        <form method="POST" action="{{ url_for('index') }}">
+            <div class="filter-section">
+                <div>
+                    <label for="filter_pillar">Attribute:</label>
+                    <select name="filter_pillar" id="filter_pillar">
+                        {% for pillar in pillars %}
+                            <option value="{{ pillar }}">{{ pillar }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="filter_operator">Operator:</label>
+                    <select name="filter_operator" id="filter_operator">
+                        <option value=">">&gt;</option>
+                        <option value="<">&lt;</option>
+                        <option value="=">=</option>
+                        <option value=">=">&gt;=</option>
+                        <option value="<=">&lt;=</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="filter_value1">Value:</label>
+                    <input type="text" name="filter_value1" id="filter_value1">
+                </div>
+                <button type="submit">Apply Filter</button>
+            </div>
+        </form>
+
+        <!-- Applied filters display -->
+        <div class="applied-filters">
+            Filters applied:
+            {% for filter in applied_filters %}
+                <span class="filter">
+                    {{ filter }}
+                    <span class="remove-filter" onclick="removeFilter('{{ filter }}')">X</span>
+                </span>
+            {% endfor %}
+        </div>
+
+        <!-- Search form -->
+        <form method="GET" action="{{ url_for('index') }}">
+            <div class="search-container">
+                <input type="text" name="search_name" placeholder="Filter by Name" value="{{ search_name }}">
+                <button type="submit">Search</button>
+            </div>
+        </form>
+
+        <!-- The div where charts will be appended in batches of 6 -->
+        <div class="charts" id="chart-container"></div>
+
+        <!-- The overlay for popups -->
+        <div id="overlay" class="overlay"></div>
+    </div>
+
+    <script>
+        // Function to remove a filter
+        function removeFilter(filter) {
+            const url = new URL(window.location.href);
+            url.searchParams.append('remove_filter', filter);
+            window.location.href = url.toString();
+        }
+
+        // Popup open/close
+        function openPopup(sheetName) {
+            document.getElementById('popup-' + sheetName).style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+        function closePopup(sheetName) {
+            document.getElementById('popup-' + sheetName).style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        // After each batch is added, we call this to remove charts where iframe says "No data available..."
+        function removeInvalidCharts(parentDiv) {
+            const chartContainers = parentDiv.querySelectorAll(".chart");
+            chartContainers.forEach(container => {
+                const iframe = container.querySelector("iframe");
+                if (iframe) {
+                    iframe.onload = () => {
+                        // Wait for the iFrame to load, then check its text
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        const iframeBodyText = iframeDoc.body ? iframeDoc.body.textContent : "";
+                        if (iframeBodyText.includes("No data available for the selected filters.")) {
+                            container.remove();
+                        } else {
+                            // Show the iframe if it is valid
+                            iframe.style.display = "block";
+                        }
+                    };
+                }
+            });
+        }
+
+        let offset = 0;
+        const limit = 6;  // how many charts per load
+        let loading = false;
+
+        // Load next batch of charts from /load_charts
+        async function loadNextBatch() {
+            if (loading) return;
+            loading = true;
+
+            // We read search_name from the URL if present
+            let urlParams = new URLSearchParams(window.location.search);
+            let searchName = urlParams.get('search_name') || "";
+
+            let fetchUrl = `/load_charts?offset=${offset}&search_name=${encodeURIComponent(searchName)}`;
+            try {
+                let resp = await fetch(fetchUrl);
+                if (resp.ok) {
+                    let htmlSnippet = await resp.text();
+
+                    // If there's nothing in the snippet, no more charts
+                    if (!htmlSnippet.trim()) {
+                        window.removeEventListener('scroll', handleScroll);
+                        return;
+                    }
+
+                    const container = document.getElementById('chart-container');
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = htmlSnippet;
+
+                    while (tempDiv.firstChild) {
+                        container.appendChild(tempDiv.firstChild);
+                    }
+
+                    // Now remove invalid charts
+                    removeInvalidCharts(container);
+
+                    // Increase offset
+                    offset += limit;
+                }
+            } catch (e) {
+                console.error("Error loading charts:", e);
+            } finally {
+                loading = false;
+            }
+        }
+
+        // On scroll, if near bottom, load next batch
+        function handleScroll() {
+            let scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+            let scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
+            let clientHeight = document.documentElement.clientHeight || window.innerHeight;
+
+            // if near the bottom
+            if (scrollTop + clientHeight + 300 >= scrollHeight) {
+                loadNextBatch();
+            }
+        }
+
+        // On DOMContentLoaded, load first batch and set up the scroll handler
+        document.addEventListener("DOMContentLoaded", () => {
+            loadNextBatch();
+            window.addEventListener("scroll", handleScroll);
+        });
+    </script>
+
+</body>
 </html>
+
+
+
+
+
