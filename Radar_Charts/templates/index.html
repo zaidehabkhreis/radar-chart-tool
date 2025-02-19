@@ -290,8 +290,21 @@
                     {% set data = data_dict.get(sheet_name, None) %}
                     {% if data is not none and data|length > 0 %}
                         <div class="chart">
-                            <iframe src="{{ url_for('generate_chart', sheet_name=sheet_name) }}" frameborder="0" onload="this.style.display='block'"></iframe>
-                            <p>{{ sheet_name }}</p>
+                            {# 
+                               Embed the chart HTML directly. 
+                               We use "|safe" so Jinja doesn't escape HTML. 
+                            #}
+                            {% set chart_output = charts_html[sheet_name] %}
+                            
+                            {% if chart_output in ["Sheet not found",
+                                                   "Invalid data format for chart generation.",
+                                                   "No data available for the selected filters.",
+                                                   "Error applying filters."] %}
+                                <p>{{ chart_output }}</p>  <!-- Show error message instead of chart -->
+                            {% else %}
+                                {{ chart_output|safe }} <!-- Embed the Plotly HTML -->
+                                <p>{{ sheet_name }}</p>
+                            {% endif %}
         
                             <button onclick="openPopup('{{ sheet_name }}')">Show Engagements</button>
         

@@ -531,7 +531,7 @@ def build_chart(sheet_name, applied_filters, data_version):
 
 
 
-#@app.route('/chart/<sheet_name>')
+@app.route('/chart/<sheet_name>')
 def generate_chart(sheet_name):
     user = get_authenticated_user(request)
     if not user:
