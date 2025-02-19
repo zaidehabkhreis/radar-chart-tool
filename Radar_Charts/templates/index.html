@@ -479,18 +479,40 @@
             background: #f9f9f9;
             border-radius: 8px;
             text-align: center;
-            flex: 0 1 calc(50% - 20px); /* two per row in large screens */
+            flex: 0 1 calc(50% - 20px);
             box-sizing: border-box;
             margin-bottom: 20px;
+            position: relative;
         }
-        .chart iframe {
-            width: 100%;
-            height: 400px;
-            display: none; /* hide until loaded */
+        /* By default, the iframe will be hidden if .chart has .loading class */
+        .chart.loading iframe {
+            display: none !important;
         }
+
         .chart p {
             margin-top: 5px;
             font-weight: bold;
+        }
+
+        /* -------------------- Spinner Styles -------------------- */
+        .spinner {
+            display: none;
+            margin: 0 auto;
+            border: 6px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-left-color: #09f;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        /* If .chart has .loading, show the spinner */
+        .chart.loading .spinner {
+            display: block;
         }
 
         /* -------------------- Popup (Engagements) -------------------- */
@@ -649,20 +671,24 @@
             document.getElementById('overlay').style.display = 'none';
         }
 
-        // After each batch is added, we call this to remove charts where iframe says "No data available..."
+        // After each batch is added, check each .chart
+        // If the iframe says "No data available..." => remove container
+        // Else => show the iframe and remove .loading (so spinner disappears).
         function removeInvalidCharts(parentDiv) {
             const chartContainers = parentDiv.querySelectorAll(".chart");
             chartContainers.forEach(container => {
                 const iframe = container.querySelector("iframe");
                 if (iframe) {
                     iframe.onload = () => {
-                        // Wait for the iFrame to load, then check its text
                         const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                         const iframeBodyText = iframeDoc.body ? iframeDoc.body.textContent : "";
+
                         if (iframeBodyText.includes("No data available for the selected filters.")) {
+                            // Remove the entire container if invalid
                             container.remove();
                         } else {
-                            // Show the iframe if it is valid
+                            // Valid chart: remove the loading class to hide spinner & show iframe
+                            container.classList.remove("loading");
                             iframe.style.display = "block";
                         }
                     };
@@ -703,7 +729,7 @@
                         container.appendChild(tempDiv.firstChild);
                     }
 
-                    // Now remove invalid charts
+                    // Now remove invalid charts or show valid ones
                     removeInvalidCharts(container);
 
                     // Increase offset
