@@ -476,9 +476,9 @@
         }
 
         /* 
-         .chart is a flex container
-         so name + button can remain at the bottom 
-         while we center the spinner + iframe in the middle. 
+         .chart is a flex container with 
+         name + button pinned at bottom 
+         while the <iframe> sits in the middle 
         */
         .chart {
             border: 1px solid #ddd;
@@ -488,46 +488,25 @@
             flex-direction: column;
             align-items: center;
             width: calc(50% - 20px);
-            min-height: 450px; /* consistent space for chart */
+            min-height: 450px; /* consistent vertical space */
             box-sizing: border-box;
             padding: 10px;
         }
 
-        /* Middle area (spinner + iframe) grows. */
+        /* Middle area for the iframe. It grows vertically. */
         .chart-mid {
-            flex: 1;              /* fill vertical space */
-            width: 100%;          
+            flex: 1;
+            width: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;    /* for spinner positioning if needed */
         }
 
-        /* The chart itself. Hidden until loaded. */
+        /* The iframe is hidden until it finishes loading. */
         .chart-mid iframe {
             width: 100%;
-            height: 400px; /* fix the chart height so it doesn't appear small then grow. */
-            display: none; /* hidden until it's loaded */
-        }
-
-        /* The bottom area: name + "Show Engagements" */
-        .chart-footer {
-            margin-top: 10px;
-        }
-
-        /* -------------------- Moving Spinner -------------------- */
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 8px solid #ccc;   
-            border-top: 8px solid #007bff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            100% {
-                transform: rotate(360deg);
-            }
+            height: 400px;
+            display: none;
         }
 
         /* -------------------- Popup (Engagements) -------------------- */
@@ -690,44 +669,29 @@
         const limit = 6;  // how many charts per load
         let loading = false;
 
-        // Put a spinner in each chart, then handle success/failure on iframe load
-        function handleCharts(parentDiv) {
+        // On each appended chart, set up an onload to show/hide the iframe or remove container
+        function processCharts(parentDiv) {
             const chartContainers = parentDiv.querySelectorAll(".chart");
             chartContainers.forEach(container => {
-                // We'll find the iframe
                 let iframe = container.querySelector("iframe");
                 if (!iframe) return;
 
-                // Create a div.chart-mid if not existing
+                // Wrap iframe in .chart-mid if not already present
                 if (!container.querySelector(".chart-mid")) {
                     const chartMid = document.createElement("div");
                     chartMid.className = "chart-mid";
-                    // Move the iframe into chartMid
                     container.insertBefore(chartMid, container.firstChild);
                     chartMid.appendChild(iframe);
                 }
 
-                // Insert spinner if not present
-                let chartMid = container.querySelector(".chart-mid");
-                if (!chartMid.querySelector(".spinner")) {
-                    const spinnerDiv = document.createElement("div");
-                    spinnerDiv.className = "spinner";
-                    chartMid.appendChild(spinnerDiv);
-                }
-
-                // On iframe load
+                // On load, check if valid
                 iframe.onload = () => {
                     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                     const iframeBodyText = iframeDoc.body ? iframeDoc.body.textContent : "";
                     if (iframeBodyText.includes("No data available for the selected filters.")) {
-                        container.remove(); // remove invalid chart
+                        container.remove();  // remove invalid
                     } else {
-                        // remove spinner, show iframe
-                        let spin = chartMid.querySelector(".spinner");
-                        if (spin) {
-                            spin.remove();
-                        }
-                        iframe.style.display = "block";
+                        iframe.style.display = "block"; // show the chart
                     }
                 };
             });
@@ -747,8 +711,8 @@
                 if (resp.ok) {
                     let htmlSnippet = await resp.text();
 
+                    // If empty, no more charts
                     if (!htmlSnippet.trim()) {
-                        // no more charts
                         window.removeEventListener('scroll', handleScroll);
                         return;
                     }
@@ -757,13 +721,11 @@
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = htmlSnippet;
 
-                    // Append the new chunk
                     while (tempDiv.firstChild) {
                         container.appendChild(tempDiv.firstChild);
                     }
 
-                    // Insert spinner / handle iframes
-                    handleCharts(container);
+                    processCharts(container);
 
                     offset += limit;
                 }
@@ -774,7 +736,7 @@
             }
         }
 
-        // On scroll, load more if near bottom
+        // If user scrolls near bottom, load next batch
         function handleScroll() {
             let scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
             let scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
@@ -785,6 +747,7 @@
             }
         }
 
+        // On DOMContentLoaded
         document.addEventListener("DOMContentLoaded", () => {
             loadNextBatch();
             window.addEventListener("scroll", handleScroll);
