@@ -1002,7 +1002,7 @@ def generate_chart(sheet_name):
     util_col = utilization_color(utilization_val)
 
     fig.add_annotation(
-        x=0.1,
+        x=0.14,
         y=-0.25,
         text=f"Capacity: {capacity_val}%",
         showarrow=False,
@@ -1023,8 +1023,8 @@ def generate_chart(sheet_name):
     )
 
     fig.add_annotation(
-        x=0.1,
-        y=-0.32,
+        x=0.14,
+        y=-0.35,
         text=f"Utilization: {utilization_val}%",
         showarrow=False,
         font=dict(color=util_col, size=12),
