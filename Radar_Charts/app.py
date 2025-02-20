@@ -497,7 +497,6 @@
 
 
 
-
 from flask import Flask, render_template, request, redirect, url_for, make_response
 import pandas as pd
 import plotly.graph_objects as go
@@ -517,7 +516,7 @@ app = Flask(__name__)
 # Configuration / Globals
 # --------------------------------------------------------------------------------------
 ADMIN_EMAIL = "tariq.khasawneh@devoteam.com"
-DRIVE_FILE_ID = "1PpMb1EcjN_YUj3dtWDY5_oJphov6Q1Dc"
+DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
 
 service_account_json = os.getenv("SERVICE_ACCOUNT")
 if service_account_json:
@@ -532,27 +531,23 @@ storage_client = storage.Client()
 BUCKET_NAME = "radar-chart-users"
 USERS_FILE_NAME = "users.json"
 
-CHECK_INTERVAL = 60  # how often we check google drive for updates (seconds)
+CHECK_INTERVAL = 60
 
-data_dict = {}                 # { sheet_name -> DataFrame }
-pillar_avg_scores_dict = {}    # { sheet_name -> DataFrame of Pillar vs Avg(Score) }
+data_dict = {}
+pillar_avg_scores_dict = {}
 latest_hash = None
 last_checked_time = 0
-unique_pillars = []            # to store unique pillars across all sheets
+unique_pillars = []
 
-# --------------------------------------------------------------------------------------
-# User management from GCS
-# --------------------------------------------------------------------------------------
 def fetch_users_from_gcs():
     bucket = storage_client.bucket(BUCKET_NAME)
     blob = bucket.blob(USERS_FILE_NAME)
 
     if not blob.exists():
         raise Exception(f"Users file {USERS_FILE_NAME} not found in bucket {BUCKET_NAME}")
-
     users_json = blob.download_as_text()
     users_data = json.loads(users_json)
-    return {user["email"]: user["password"] for user in users_data["users"]}
+    return {u["email"]: u["password"] for u in users_data["users"]}
 
 def save_users_to_gcs(users_dict):
     bucket = storage_client.bucket(BUCKET_NAME)
@@ -564,7 +559,6 @@ def save_users_to_gcs(users_dict):
 VALID_USERS = fetch_users_from_gcs()
 
 def get_authenticated_user(request):
-    """Check if the user is authenticated via cookies."""
     email = request.cookies.get("user_email")
     password = request.cookies.get("user_password")
     if email in VALID_USERS and VALID_USERS[email] == password:
@@ -586,12 +580,10 @@ def manage_users():
             if email not in VALID_USERS:
                 VALID_USERS[email] = password
                 save_users_to_gcs(VALID_USERS)
-
         elif action == "edit" and email and password:
             if email in VALID_USERS:
                 VALID_USERS[email] = password
                 save_users_to_gcs(VALID_USERS)
-
         elif action == "remove" and email:
             if email in VALID_USERS:
                 del VALID_USERS[email]
@@ -609,10 +601,10 @@ def login():
         VALID_USERS = fetch_users_from_gcs()
 
         if email in VALID_USERS and VALID_USERS[email] == password:
-            response = make_response(redirect(url_for('index')))
-            response.set_cookie("user_email", email)
-            response.set_cookie("user_password", password)
-            return response
+            resp = make_response(redirect(url_for('index')))
+            resp.set_cookie("user_email", email)
+            resp.set_cookie("user_password", password)
+            return resp
         else:
             return render_template("login.html", error="Invalid email or password")
 
@@ -620,16 +612,14 @@ def login():
 
 @app.route('/logout')
 def logout():
-    response = make_response(redirect(url_for('login')))
-    response.delete_cookie("user_email")
-    response.delete_cookie("user_password")
-    return response
+    resp = make_response(redirect(url_for('login')))
+    resp.delete_cookie("user_email")
+    resp.delete_cookie("user_password")
+    return resp
 
-# --------------------------------------------------------------------------------------
-# Google Drive + Data loading
-# --------------------------------------------------------------------------------------
 def calculate_file_hash(file_stream):
     file_stream.seek(0)
+    import hashlib
     hasher = hashlib.md5()
     while True:
         chunk = file_stream.read(8192)
@@ -639,30 +629,26 @@ def calculate_file_hash(file_stream):
     return hasher.hexdigest()
 
 def fetch_latest_excel_if_updated():
-    """Fetch the latest spreadsheet from Google Drive only if an update is detected."""
     global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
 
     current_time = time.time()
-    # Check if 60 seconds passed since last check
     if current_time - last_checked_time < CHECK_INTERVAL:
         return False
 
     last_checked_time = current_time
-
     try:
         request = drive_service.files().get_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
         file_stream = io.BytesIO()
+        from googleapiclient.http import MediaIoBaseDownload
         downloader = MediaIoBaseDownload(file_stream, request)
         done = False
         while not done:
             _, done = downloader.next_chunk()
 
         new_hash = calculate_file_hash(file_stream)
-
         if new_hash == latest_hash:
-            return False  # no change
+            return False
 
-        # We have a new version
         latest_hash = new_hash
         file_stream.seek(0)
         sheets = pd.ExcelFile(file_stream)
@@ -686,7 +672,6 @@ def fetch_latest_excel_if_updated():
                 pillars_in_sheet = df['Pillar'].dropna().unique()
                 all_pillars.update(pillars_in_sheet)
 
-        # Update global dictionaries
         data_dict.update(new_data_dict)
         pillar_avg_scores_dict.update(new_pillar_avg_scores_dict)
 
@@ -706,37 +691,31 @@ def fetch_latest_excel_if_updated():
 def check_for_updates():
     fetch_latest_excel_if_updated()
 
-# --------------------------------------------------------------------------------------
-# Filtering
-# --------------------------------------------------------------------------------------
 def get_applied_filters(request):
-    applied_filters = request.cookies.get('applied_filters', '[]')
-    return json.loads(applied_filters)
+    import json
+    af = request.cookies.get('applied_filters', '[]')
+    return json.loads(af)
 
 def set_applied_filters(response, applied_filters):
+    import json
     response.set_cookie('applied_filters', json.dumps(applied_filters))
 
 def filter_data(data, applied_filters):
-    """
-    Returns {sheet_name -> DataFrame} for sheets that pass all filters.
-    """
     filtered_data_dict = {}
-
     for sheet_name, df in data.items():
         include_sheet = True
         if 'Pillar' in df.columns and 'Score' in df.columns:
             avg_scores = pillar_avg_scores_dict.get(sheet_name, pd.DataFrame())
-
             for filter_str in applied_filters:
                 try:
-                    filter_parts = filter_str.replace('Pillar: ', '').split(' ', 2)
-                    if len(filter_parts) != 3:
+                    fparts = filter_str.replace('Pillar: ', '').split(' ', 2)
+                    if len(fparts) != 3:
                         continue
-
-                    pillar = filter_parts[0]
-                    operator = filter_parts[1]
+                    pillar = fparts[0]
+                    operator = fparts[1]
+                    val_str = fparts[2]
                     try:
-                        value = float(filter_parts[2])
+                        val = float(val_str)
                     except ValueError:
                         continue
 
@@ -749,71 +728,57 @@ def filter_data(data, applied_filters):
                         include_sheet = False
                         break
 
-                    if operator == '>' and not avg_score > value:
+                    if operator == '>' and not avg_score > val:
                         include_sheet = False
                         break
-                    elif operator == '<' and not avg_score < value:
+                    elif operator == '<' and not avg_score < val:
                         include_sheet = False
                         break
-                    elif operator == '=' and not avg_score == value:
+                    elif operator == '=' and not avg_score == val:
                         include_sheet = False
                         break
-                    elif operator == '>=' and not avg_score >= value:
+                    elif operator == '>=' and not avg_score >= val:
                         include_sheet = False
                         break
-                    elif operator == '<=' and not avg_score <= value:
+                    elif operator == '<=' and not avg_score <= val:
                         include_sheet = False
                         break
-
                 except Exception as e:
-                    print(f"Filter error: {e}, Filter: {filter_str}")
+                    print("Filter error:", e, "Filter:", filter_str)
                     include_sheet = False
                     break
 
-        # If it passed all filters and not empty
         if include_sheet and not df.empty:
             filtered_data_dict[sheet_name] = df
-
     return filtered_data_dict
 
-# --------------------------------------------------------------------------------------
-# Main index (Renders index.html)
-# --------------------------------------------------------------------------------------
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET','POST'])
 def index():
     user = get_authenticated_user(request)
     if not user:
         return redirect(url_for('login'))
 
-    # Handle removing a filter
-    remove_filter = request.args.get('remove_filter', None)
+    remove_filter = request.args.get('remove_filter')
     applied_filters = get_applied_filters(request)
-
     if remove_filter:
         applied_filters = [f for f in applied_filters if f != remove_filter]
-        response = make_response(redirect(url_for('index')))
-        set_applied_filters(response, applied_filters)
-        return response
+        resp = make_response(redirect(url_for('index')))
+        set_applied_filters(resp, applied_filters)
+        return resp
 
-    # Handle adding a filter
     if request.method == 'POST':
-        filter_pillar = request.form.get('filter_pillar')
-        filter_operator = request.form.get('filter_operator')
-        filter_value1 = request.form.get('filter_value1')
+        fpillar = request.form.get('filter_pillar')
+        fop = request.form.get('filter_operator')
+        fval = request.form.get('filter_value1')
+        fstr = f"Pillar: {fpillar} {fop} {fval}"
+        if fstr not in applied_filters:
+            applied_filters.append(fstr)
+        resp = make_response(redirect(url_for('index')))
+        set_applied_filters(resp, applied_filters)
+        return resp
 
-        filter_str = f"Pillar: {filter_pillar} {filter_operator} {filter_value1}"
-        if filter_str not in applied_filters:
-            applied_filters.append(filter_str)
-
-        response = make_response(redirect(url_for('index')))
-        set_applied_filters(response, applied_filters)
-        return response
-
-    # Check if user typed a search name
     search_name = request.args.get('search_name', '').lower()
 
-    # We do NOT load the charts here. We'll do infinite scroll.
-    # We just render the template with pillars, filters, search name, etc.
     return render_template(
         'index.html',
         pillars=unique_pillars,
@@ -822,9 +787,7 @@ def index():
         user=user
     )
 
-# --------------------------------------------------------------------------------------
-# Load charts in chunks (6 at a time) for infinite scrolling
-# --------------------------------------------------------------------------------------
+# ***** CHANGED limit=1 so each call returns exactly one chart *****
 @app.route('/load_charts')
 def load_charts():
     user = get_authenticated_user(request)
@@ -832,23 +795,20 @@ def load_charts():
         return "Not logged in", 401
 
     offset = int(request.args.get('offset', 0))
-    limit = 6
+    limit = 1  # each fetch loads exactly ONE chart
     search_name = request.args.get('search_name', '').lower()
 
     applied_filters = get_applied_filters(request)
     filtered_data = filter_data(data_dict, applied_filters)
 
-    # Build a list of sheet names that pass filters
-    sheets = [sheet for sheet, df in filtered_data.items() if not df.empty]
+    sheets = [s for s, df in filtered_data.items() if not df.empty]
     if search_name:
         sheets = [s for s in sheets if s.lower() == search_name]
 
-    # Slice the chunk we want
-    chunk = sheets[offset : offset + limit]
+    chunk = sheets[offset: offset+limit]
     if not chunk:
-        return ""  # return empty if no more charts
+        return ""  # no more
 
-    # Build the HTML snippet for these sheets
     snippet = ""
     for sheet_name in chunk:
         df = data_dict[sheet_name]
@@ -864,15 +824,12 @@ def load_charts():
                 <div class="popup-title">Engagements for {sheet_name}</div>
                 <ul>
         """
-
-        # Engagement logic
         if df is not None and 'Engagements' in df.columns and not df['Engagements'].isnull().all():
             all_engagements = set()
             for e_list in df['Engagements']:
                 if e_list and isinstance(e_list, str):
                     for eng in e_list.split(','):
                         all_engagements.add(eng.strip())
-
             for eng in sorted(all_engagements):
                 snippet += f"<li>{eng}</li>"
 
@@ -881,7 +838,6 @@ def load_charts():
             </div>
         </div>
         """
-
     return snippet
 
 # --------------------------------------------------------------------------------------
