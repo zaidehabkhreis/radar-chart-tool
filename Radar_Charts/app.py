@@ -797,125 +797,162 @@ def generate_chart(sheet_name):
     if not user:
         return redirect(url_for('login'))
 
+    applied_filters = get_applied_filters(request)
     if sheet_name not in data_dict:
-        return "Sheet not found",404
+        return "Sheet not found", 404
 
     df = data_dict[sheet_name].copy()
     if 'Score' not in df.columns or 'Pillar' not in df.columns:
-        return "Invalid data format for chart generation.",404
+        return "Invalid data format for chart generation.", 404
 
-    # Check filters
-    applied_filters = get_applied_filters(request)
+    # Check if filter disqualifies this sheet
     avg_scores = df.groupby('Pillar')['Score'].mean().round(1).reset_index()
-
     import re
     for filter_str in applied_filters:
         if not filter_str.startswith("Pillar: "):
             continue
-        match = re.match(r"Pillar:\s*(.+)\s+(>|<|=|>=|<=)\s+([0-9.]+)", filter_str)
+
+        match = re.match(r"Pillar: (.+) (>|<|=|>=|<=) ([0-9.]+)", filter_str)
         if not match:
             continue
-        pillar, op, val_str = match.groups()
-        val = float(val_str)
+
+        pillar = match.group(1).strip()
+        operator = match.group(2)
+        value = float(match.group(3))
 
         if pillar not in avg_scores['Pillar'].values:
-            return "No data available for the selected filters.",404
-        avg_score = avg_scores.loc[avg_scores['Pillar']==pillar,'Score'].values[0]
+            return "No data available for the selected filters.", 404
 
-        if op=='>' and not avg_score>val:
-            return "No data available for the selected filters.",404
-        elif op=='<' and not avg_score<val:
-            return "No data available for the selected filters.",404
-        elif op=='=' and not avg_score==val:
-            return "No data available for the selected filters.",404
-        elif op=='>=' and not avg_score>=val:
-            return "No data available for the selected filters.",404
-        elif op=='<=' and not avg_score<=val:
-            return "No data available for the selected filters.",404
+        val = avg_scores.loc[avg_scores['Pillar'] == pillar, 'Score'].values[0]
+        if operator == '>' and not val > value:
+            return "No data available for the selected filters.", 404
+        elif operator == '<' and not val < value:
+            return "No data available for the selected filters.", 404
+        elif operator == '=' and not val == value:
+            return "No data available for the selected filters.", 404
+        elif operator == '>=' and not val >= value:
+            return "No data available for the selected filters.", 404
+        elif operator == '<=' and not val <= value:
+            return "No data available for the selected filters.", 404
 
-    # Build Plotly figure
+    # Build the Plotly figure
     import plotly.graph_objects as go
+
     fig = go.Figure()
-    # e.g. fill radar chart...
-    # We'll just replicate your logic:
     categories = avg_scores['Pillar'].tolist()
     values = avg_scores['Score'].tolist()
+    # close the loop for radar
     categories.append(categories[0])
     values.append(values[0])
 
+    # Build hover data
     hover_data = []
     for pillar in categories:
         if pillar not in df['Pillar'].values:
             hover_data.append(f"No data for {pillar}")
             continue
-        pillar_df = df[df['Pillar']==pillar]
+
+        pillar_df = df[df['Pillar'] == pillar]
         specific_skills = pillar_df['Specific Skill'].tolist()
         scores = pillar_df['Score'].tolist()
-        ps = avg_scores.loc[avg_scores['Pillar']==pillar,'Score'].values[0] if pillar in avg_scores['Pillar'].values else 'N/A'
-        info = f"Averaged Score: {ps}<br>Attribute: {pillar}<br>"
-        for (sk, sc) in zip(specific_skills, scores):
-            info+=f"<span style='font-size:10px;'>{sk}: {sc}</span><br>"
+
+        pillar_score = avg_scores.loc[avg_scores['Pillar'] == pillar, 'Score'].values[0] if pillar in avg_scores['Pillar'].values else 'N/A'
+        info = f"Averaged Score: {pillar_score}<br>Attribute: {pillar}<br>"
+        for sk, sc in zip(specific_skills, scores):
+            info += f"<span style='font-size: 10px;'>{sk}: {sc}</span><br>"
         hover_data.append(info)
 
     fig.add_trace(go.Scatterpolar(
-        r=values, theta=categories, fill='toself', name=sheet_name,
-        hoverinfo='text', text=hover_data
+        r=values,
+        theta=categories,
+        fill='toself',
+        name=sheet_name,
+        hoverinfo='text',
+        text=hover_data
     ))
 
-    # capacity/util logic
+    # capacity/utilization
     def safe_int(x):
         try:
             return int(round(x))
         except:
             return 0
+
     capacity_val = safe_int(df.loc[0,'Capacity']*100 if 'Capacity' in df.columns and not df.empty else 0)
     utilization_val = safe_int(df.loc[0,'Utilization']*100 if 'Utilization' in df.columns and not df.empty else 0)
 
-    def capacity_color(c):
-        if c<=50: return '#6EC664'
-        elif c<=80: return '#FFCB6B'
-        elif c<=95: return '#DC7633'
-        else: return '#E74C3C'
+    # color picking
+    def capacity_color(cap):
+        if cap <= 50:
+            return '#6EC664'
+        elif cap <= 80:
+            return '#FFCB6B'
+        elif cap <= 95:
+            return '#DC7633'
+        else:
+            return '#E74C3C'
 
-    def utilization_color(u):
-        if u<=50: return '#E74C3C'
-        elif u<=80: return '#DC7633'
-        elif u<=95: return '#FFCB6B'
-        else: return '#6EC664'
+    def utilization_color(util):
+        if util <= 50:
+            return '#E74C3C'
+        elif util <= 80:
+            return '#DC7633'
+        elif util <= 95:
+            return '#FFCB6B'
+        else:
+            return '#6EC664'
 
-    cap_col=capacity_color(capacity_val)
-    util_col=utilization_color(utilization_val)
+    cap_col = capacity_color(capacity_val)
+    util_col = utilization_color(utilization_val)
 
     fig.add_annotation(
-        x=0.14,y=-0.25,showarrow=False,
+        x=0.14,
+        y=-0.25,
         text=f"Capacity: {capacity_val}%",
-        font=dict(color=cap_col,size=12),
-        xref="paper",yref="paper"
+        showarrow=False,
+        font=dict(color=cap_col, size=12),
+        xref="paper",
+        yref="paper"
     )
     fig.add_shape(
-        type="rect", x0=0.35, x1=0.85, y0=-0.23, y1=-0.19,
-        fillcolor=cap_col, line=dict(width=0),
-        xref="paper", yref="paper"
+        type="rect",
+        x0=0.35,
+        x1=0.85,
+        y0=-0.23,
+        y1=-0.19,
+        fillcolor=cap_col,
+        line=dict(width=0),
+        xref="paper",
+        yref="paper"
     )
 
     fig.add_annotation(
-        x=0.14,y=-0.35,showarrow=False,
+        x=0.14,
+        y=-0.35,
         text=f"Utilization: {utilization_val}%",
-        font=dict(color=util_col,size=12),
-        xref="paper",yref="paper"
+        showarrow=False,
+        font=dict(color=util_col, size=12),
+        xref="paper",
+        yref="paper"
     )
     fig.add_shape(
-        type="rect", x0=0.35, x1=0.85, y0=-0.33, y1=-0.29,
-        fillcolor=util_col, line=dict(width=0),
-        xref="paper", yref="paper"
+        type="rect",
+        x0=0.35,
+        x1=0.85,
+        y0=-0.33,
+        y1=-0.29,
+        fillcolor=util_col,
+        line=dict(width=0),
+        xref="paper",
+        yref="paper"
     )
 
     fig.update_layout(
         polar=dict(
-            radialaxis=dict(visible=True, range=[0,10], tickfont=dict(size=6.5)),
+            radialaxis=dict(visible=True, range=[0, 10], tickfont=dict(size=6.5)),
             angularaxis=dict(tickfont=dict(size=9))
         ),
-        showlegend=False
+        showlegend=False,
     )
 
     return fig.to_html(full_html=False)
