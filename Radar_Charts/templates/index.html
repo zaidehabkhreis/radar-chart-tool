@@ -386,9 +386,8 @@
     <meta charset="UTF-8">
     <title>Radar Chart Generator</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
     <style>
-        /* -------------------- Basic Styles -------------------- */
+        /* Basic page styles (same as before) */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -404,7 +403,6 @@
             border-radius: 8px;
             text-align: center;
         }
-
         .top-bar {
             display: flex;
             justify-content: space-between;
@@ -427,13 +425,12 @@
         .logout-btn:hover {
             background: darkred;
         }
-
         h1 {
             text-align: center;
             color: #333;
         }
 
-        /* -------------------- Filter/Search Forms -------------------- */
+        /* Filter/Search forms */
         .filter-section {
             display: flex;
             justify-content: center;
@@ -442,7 +439,6 @@
         .filter-section > div {
             margin-right: 10px;
         }
-
         .search-container {
             margin-bottom: 15px;
         }
@@ -467,33 +463,25 @@
             color: red;
         }
 
-        /* -------------------- Charts Container -------------------- */
+        /* Charts container (blank if you removed spinners) */
         .charts {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
             justify-content: center;
         }
-
-        /* 
-         .chart is a flex container with 
-         name + button pinned at bottom 
-         while the <iframe> sits in the middle 
-        */
         .chart {
             border: 1px solid #ddd;
             border-radius: 8px;
             background: #f9f9f9;
+            width: calc(50% - 20px);
+            min-height: 450px;
+            box-sizing: border-box;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            width: calc(50% - 20px);
-            min-height: 450px; /* consistent vertical space */
-            box-sizing: border-box;
-            padding: 10px;
         }
-
-        /* Middle area for the iframe. It grows vertically. */
         .chart-mid {
             flex: 1;
             width: 100%;
@@ -501,15 +489,11 @@
             align-items: center;
             justify-content: center;
         }
-
-        /* The iframe is hidden until it finishes loading. */
         .chart-mid iframe {
             width: 100%;
             height: 400px;
-            display: none;
+            display: none; /* hidden until loaded */
         }
-
-        /* -------------------- Popup (Engagements) -------------------- */
         .popup {
             display: none;
             position: fixed;
@@ -558,8 +542,6 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: 999;
         }
-
-        /* -------------------- Buttons -------------------- */
         button {
             background: #007bff;
             color: #fff;
@@ -571,7 +553,6 @@
         button:hover {
             background: #0056b3;
         }
-
     </style>
 </head>
 <body>
@@ -632,11 +613,13 @@
             {% endfor %}
         </div>
 
-        <!-- Search form -->
+        <!-- Search form with new "Show All" button -->
         <form method="GET" action="{{ url_for('index') }}">
             <div class="search-container">
                 <input type="text" name="search_name" placeholder="Filter by Name" value="{{ search_name }}">
                 <button type="submit">Search</button>
+                <!-- New "Show All" button that clears the search name -->
+                <button type="button" onclick="clearSearch()">Show All</button>
             </div>
         </form>
 
@@ -648,10 +631,22 @@
     </div>
 
     <script>
-        // Remove filter
+        // Remove a filter from the URL
         function removeFilter(filter) {
             const url = new URL(window.location.href);
             url.searchParams.append('remove_filter', filter);
+            window.location.href = url.toString();
+        }
+
+        // Clear the search_name param and reload => show all
+        function clearSearch() {
+            const url = new URL(window.location.href);
+            // Remove 'search_name' param if it exists
+            if (url.searchParams.has('search_name')) {
+                url.searchParams.delete('search_name');
+            }
+            // Also reset offset if you like (not strictly necessary).
+            // Reload page
             window.location.href = url.toString();
         }
 
@@ -666,17 +661,17 @@
         }
 
         let offset = 0;
-        const limit = 6;  // how many charts per load
+        const limit = 6;
         let loading = false;
 
-        // On each appended chart, set up an onload to show/hide the iframe or remove container
+        // On each appended chart, set up iframe onload
         function processCharts(parentDiv) {
             const chartContainers = parentDiv.querySelectorAll(".chart");
             chartContainers.forEach(container => {
                 let iframe = container.querySelector("iframe");
                 if (!iframe) return;
 
-                // Wrap iframe in .chart-mid if not already present
+                // Wrap iframe in .chart-mid if not present
                 if (!container.querySelector(".chart-mid")) {
                     const chartMid = document.createElement("div");
                     chartMid.className = "chart-mid";
@@ -689,15 +684,15 @@
                     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                     const iframeBodyText = iframeDoc.body ? iframeDoc.body.textContent : "";
                     if (iframeBodyText.includes("No data available for the selected filters.")) {
-                        container.remove();  // remove invalid
+                        container.remove();
                     } else {
-                        iframe.style.display = "block"; // show the chart
+                        iframe.style.display = "block";
                     }
                 };
             });
         }
 
-        // Load next batch of charts from /load_charts
+        // Load next batch from /load_charts
         async function loadNextBatch() {
             if (loading) return;
             loading = true;
@@ -710,8 +705,6 @@
                 let resp = await fetch(fetchUrl);
                 if (resp.ok) {
                     let htmlSnippet = await resp.text();
-
-                    // If empty, no more charts
                     if (!htmlSnippet.trim()) {
                         window.removeEventListener('scroll', handleScroll);
                         return;
@@ -720,13 +713,11 @@
                     const container = document.getElementById('chart-container');
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = htmlSnippet;
-
                     while (tempDiv.firstChild) {
                         container.appendChild(tempDiv.firstChild);
                     }
 
                     processCharts(container);
-
                     offset += limit;
                 }
             } catch (e) {
@@ -736,7 +727,6 @@
             }
         }
 
-        // If user scrolls near bottom, load next batch
         function handleScroll() {
             let scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
             let scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
@@ -747,7 +737,6 @@
             }
         }
 
-        // On DOMContentLoaded
         document.addEventListener("DOMContentLoaded", () => {
             loadNextBatch();
             window.addEventListener("scroll", handleScroll);
@@ -755,6 +744,7 @@
     </script>
 </body>
 </html>
+
 
 
 
