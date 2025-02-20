@@ -532,14 +532,17 @@ storage_client = storage.Client()
 BUCKET_NAME = "radar-chart-users"
 USERS_FILE_NAME = "users.json"
 
-CHECK_INTERVAL = 60  # how often we check google drive for updates
+CHECK_INTERVAL = 60  # how often we check google drive for updates (seconds)
 
-data_dict = {}
-pillar_avg_scores_dict = {}
+data_dict = {}                 # { sheet_name -> DataFrame }
+pillar_avg_scores_dict = {}    # { sheet_name -> DataFrame of Pillar vs Avg(Score) }
 latest_hash = None
 last_checked_time = 0
-unique_pillars = []
+unique_pillars = []            # to store unique pillars across all sheets
 
+# --------------------------------------------------------------------------------------
+# User management from GCS
+# --------------------------------------------------------------------------------------
 def fetch_users_from_gcs():
     bucket = storage_client.bucket(BUCKET_NAME)
     blob = bucket.blob(USERS_FILE_NAME)
@@ -561,6 +564,7 @@ def save_users_to_gcs(users_dict):
 VALID_USERS = fetch_users_from_gcs()
 
 def get_authenticated_user(request):
+    """Check if the user is authenticated via cookies."""
     email = request.cookies.get("user_email")
     password = request.cookies.get("user_password")
     if email in VALID_USERS and VALID_USERS[email] == password:
@@ -605,10 +609,10 @@ def login():
         VALID_USERS = fetch_users_from_gcs()
 
         if email in VALID_USERS and VALID_USERS[email] == password:
-            resp = make_response(redirect(url_for('index')))
-            resp.set_cookie("user_email", email)
-            resp.set_cookie("user_password", password)
-            return resp
+            response = make_response(redirect(url_for('index')))
+            response.set_cookie("user_email", email)
+            response.set_cookie("user_password", password)
+            return response
         else:
             return render_template("login.html", error="Invalid email or password")
 
@@ -616,11 +620,14 @@ def login():
 
 @app.route('/logout')
 def logout():
-    resp = make_response(redirect(url_for('login')))
-    resp.delete_cookie("user_email")
-    resp.delete_cookie("user_password")
-    return resp
+    response = make_response(redirect(url_for('login')))
+    response.delete_cookie("user_email")
+    response.delete_cookie("user_password")
+    return response
 
+# --------------------------------------------------------------------------------------
+# Google Drive + Data loading
+# --------------------------------------------------------------------------------------
 def calculate_file_hash(file_stream):
     file_stream.seek(0)
     hasher = hashlib.md5()
@@ -632,13 +639,16 @@ def calculate_file_hash(file_stream):
     return hasher.hexdigest()
 
 def fetch_latest_excel_if_updated():
+    """Fetch the latest spreadsheet from Google Drive only if an update is detected."""
     global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
 
     current_time = time.time()
+    # Check if 60 seconds passed since last check
     if current_time - last_checked_time < CHECK_INTERVAL:
         return False
 
     last_checked_time = current_time
+
     try:
         request = drive_service.files().get_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
         file_stream = io.BytesIO()
@@ -648,9 +658,11 @@ def fetch_latest_excel_if_updated():
             _, done = downloader.next_chunk()
 
         new_hash = calculate_file_hash(file_stream)
+
         if new_hash == latest_hash:
             return False  # no change
 
+        # We have a new version
         latest_hash = new_hash
         file_stream.seek(0)
         sheets = pd.ExcelFile(file_stream)
@@ -674,6 +686,7 @@ def fetch_latest_excel_if_updated():
                 pillars_in_sheet = df['Pillar'].dropna().unique()
                 all_pillars.update(pillars_in_sheet)
 
+        # Update global dictionaries
         data_dict.update(new_data_dict)
         pillar_avg_scores_dict.update(new_pillar_avg_scores_dict)
 
@@ -693,6 +706,9 @@ def fetch_latest_excel_if_updated():
 def check_for_updates():
     fetch_latest_excel_if_updated()
 
+# --------------------------------------------------------------------------------------
+# Filtering
+# --------------------------------------------------------------------------------------
 def get_applied_filters(request):
     applied_filters = request.cookies.get('applied_filters', '[]')
     return json.loads(applied_filters)
@@ -701,7 +717,11 @@ def set_applied_filters(response, applied_filters):
     response.set_cookie('applied_filters', json.dumps(applied_filters))
 
 def filter_data(data, applied_filters):
+    """
+    Returns {sheet_name -> DataFrame} for sheets that pass all filters.
+    """
     filtered_data_dict = {}
+
     for sheet_name, df in data.items():
         include_sheet = True
         if 'Pillar' in df.columns and 'Score' in df.columns:
@@ -712,6 +732,7 @@ def filter_data(data, applied_filters):
                     filter_parts = filter_str.replace('Pillar: ', '').split(' ', 2)
                     if len(filter_parts) != 3:
                         continue
+
                     pillar = filter_parts[0]
                     operator = filter_parts[1]
                     try:
@@ -743,22 +764,93 @@ def filter_data(data, applied_filters):
                     elif operator == '<=' and not avg_score <= value:
                         include_sheet = False
                         break
+
                 except Exception as e:
                     print(f"Filter error: {e}, Filter: {filter_str}")
                     include_sheet = False
                     break
 
+        # If it passed all filters and not empty
         if include_sheet and not df.empty:
             filtered_data_dict[sheet_name] = df
+
     return filtered_data_dict
 
-# ------------------------------------------------------------------
-# Build the HTML snippet for a given list of sheets
-# (Similar to what /load_charts does, but as a function)
-# ------------------------------------------------------------------
-def build_charts_html(sheets_list):
+# --------------------------------------------------------------------------------------
+# Main index (Renders index.html)
+# --------------------------------------------------------------------------------------
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    user = get_authenticated_user(request)
+    if not user:
+        return redirect(url_for('login'))
+
+    # Handle removing a filter
+    remove_filter = request.args.get('remove_filter', None)
+    applied_filters = get_applied_filters(request)
+
+    if remove_filter:
+        applied_filters = [f for f in applied_filters if f != remove_filter]
+        response = make_response(redirect(url_for('index')))
+        set_applied_filters(response, applied_filters)
+        return response
+
+    # Handle adding a filter
+    if request.method == 'POST':
+        filter_pillar = request.form.get('filter_pillar')
+        filter_operator = request.form.get('filter_operator')
+        filter_value1 = request.form.get('filter_value1')
+
+        filter_str = f"Pillar: {filter_pillar} {filter_operator} {filter_value1}"
+        if filter_str not in applied_filters:
+            applied_filters.append(filter_str)
+
+        response = make_response(redirect(url_for('index')))
+        set_applied_filters(response, applied_filters)
+        return response
+
+    # Check if user typed a search name
+    search_name = request.args.get('search_name', '').lower()
+
+    # We do NOT load the charts here. We'll do infinite scroll.
+    # We just render the template with pillars, filters, search name, etc.
+    return render_template(
+        'index.html',
+        pillars=unique_pillars,
+        applied_filters=applied_filters,
+        search_name=search_name,
+        user=user
+    )
+
+# --------------------------------------------------------------------------------------
+# Load charts in chunks (6 at a time) for infinite scrolling
+# --------------------------------------------------------------------------------------
+@app.route('/load_charts')
+def load_charts():
+    user = get_authenticated_user(request)
+    if not user:
+        return "Not logged in", 401
+
+    offset = int(request.args.get('offset', 0))
+    limit = 6
+    search_name = request.args.get('search_name', '').lower()
+
+    applied_filters = get_applied_filters(request)
+    filtered_data = filter_data(data_dict, applied_filters)
+
+    # Build a list of sheet names that pass filters
+    sheets = [sheet for sheet, df in filtered_data.items() if not df.empty]
+    if search_name:
+        sheets = [s for s in sheets if s.lower() == search_name]
+
+    # Slice the chunk we want
+    chunk = sheets[offset : offset + limit]
+    if not chunk:
+        return ""  # return empty if no more charts
+
+    # Build the HTML snippet for these sheets
     snippet = ""
-    for sheet_name in sheets_list:
+    for sheet_name in chunk:
         df = data_dict[sheet_name]
         snippet += f"""
         <div class="chart">
@@ -789,86 +881,7 @@ def build_charts_html(sheets_list):
             </div>
         </div>
         """
-    return snippet
 
-# --------------------------------------------------------------------------------------
-# Main index
-# Render the first 6 charts server-side, then do infinite scrolling for subsequent ones
-# --------------------------------------------------------------------------------------
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    user = get_authenticated_user(request)
-    if not user:
-        return redirect(url_for('login'))
-
-    remove_filter = request.args.get('remove_filter', None)
-    applied_filters = get_applied_filters(request)
-
-    if remove_filter:
-        applied_filters = [f for f in applied_filters if f != remove_filter]
-        resp = make_response(redirect(url_for('index')))
-        set_applied_filters(resp, applied_filters)
-        return resp
-
-    if request.method == 'POST':
-        filter_pillar = request.form.get('filter_pillar')
-        filter_operator = request.form.get('filter_operator')
-        filter_value1 = request.form.get('filter_value1')
-
-        filter_str = f"Pillar: {filter_pillar} {filter_operator} {filter_value1}"
-        if filter_str not in applied_filters:
-            applied_filters.append(filter_str)
-
-        resp = make_response(redirect(url_for('index')))
-        set_applied_filters(resp, applied_filters)
-        return resp
-
-    search_name = request.args.get('search_name', '').lower()
-
-    # Filter data
-    filtered_data_dict = filter_data(data_dict, applied_filters)
-    all_sheets = [s for s, df in filtered_data_dict.items() if not df.empty]
-    if search_name:
-        all_sheets = [s for s in all_sheets if s.lower() == search_name]
-
-    # Server-side render the first 6 sheets
-    initial_sheets = all_sheets[:6]
-    initial_html = build_charts_html(initial_sheets)
-
-    return render_template(
-        'index.html',
-        pillars=unique_pillars,
-        applied_filters=applied_filters,
-        search_name=search_name,
-        user=user,
-        initial_html=initial_html  # pass the rendered chunk
-    )
-
-# --------------------------------------------------------------------------------------
-# Load charts in chunks (for offset >= 6) after initial is displayed
-# --------------------------------------------------------------------------------------
-@app.route('/load_charts')
-def load_charts():
-    user = get_authenticated_user(request)
-    if not user:
-        return "Not logged in", 401
-
-    offset = int(request.args.get('offset', 0))
-    limit = 6
-    search_name = request.args.get('search_name', '').lower()
-
-    applied_filters = get_applied_filters(request)
-    filtered_data = filter_data(data_dict, applied_filters)
-
-    sheets = [sheet for sheet, df in filtered_data.items() if not df.empty]
-    if search_name:
-        sheets = [s for s in sheets if s.lower() == search_name]
-
-    chunk = sheets[offset : offset + limit]
-    if not chunk:
-        return ""
-
-    snippet = build_charts_html(chunk)
     return snippet
 
 # --------------------------------------------------------------------------------------
@@ -888,11 +901,13 @@ def generate_chart(sheet_name):
     if 'Score' not in df.columns or 'Pillar' not in df.columns:
         return "Invalid data format for chart generation.", 404
 
+    # Check if filter disqualifies this sheet
     avg_scores = df.groupby('Pillar')['Score'].mean().round(1).reset_index()
     import re
     for filter_str in applied_filters:
         if not filter_str.startswith("Pillar: "):
             continue
+
         match = re.match(r"Pillar: (.+) (>|<|=|>=|<=) ([0-9.]+)", filter_str)
         if not match:
             continue
@@ -916,14 +931,17 @@ def generate_chart(sheet_name):
         elif operator == '<=' and not val <= value:
             return "No data available for the selected filters.", 404
 
+    # Build the Plotly figure
     import plotly.graph_objects as go
 
     fig = go.Figure()
     categories = avg_scores['Pillar'].tolist()
     values = avg_scores['Score'].tolist()
+    # close the loop for radar
     categories.append(categories[0])
     values.append(values[0])
 
+    # Build hover data
     hover_data = []
     for pillar in categories:
         if pillar not in df['Pillar'].values:
@@ -933,6 +951,7 @@ def generate_chart(sheet_name):
         pillar_df = df[df['Pillar'] == pillar]
         specific_skills = pillar_df['Specific Skill'].tolist()
         scores = pillar_df['Score'].tolist()
+
         pillar_score = avg_scores.loc[avg_scores['Pillar'] == pillar, 'Score'].values[0] if pillar in avg_scores['Pillar'].values else 'N/A'
         info = f"Averaged Score: {pillar_score}<br>Attribute: {pillar}<br>"
         for sk, sc in zip(specific_skills, scores):
@@ -948,6 +967,7 @@ def generate_chart(sheet_name):
         text=hover_data
     ))
 
+    # capacity/utilization
     def safe_int(x):
         try:
             return int(round(x))
@@ -957,6 +977,7 @@ def generate_chart(sheet_name):
     capacity_val = safe_int(df.loc[0,'Capacity']*100 if 'Capacity' in df.columns and not df.empty else 0)
     utilization_val = safe_int(df.loc[0,'Utilization']*100 if 'Utilization' in df.columns and not df.empty else 0)
 
+    # color picking
     def capacity_color(cap):
         if cap <= 50:
             return '#6EC664'
@@ -979,7 +1000,6 @@ def generate_chart(sheet_name):
 
     cap_col = capacity_color(capacity_val)
     util_col = utilization_color(utilization_val)
-
 
     fig.add_annotation(
         x=0.14,
@@ -1033,5 +1053,6 @@ def generate_chart(sheet_name):
 
     return fig.to_html(full_html=False)
 
+# --------------------------------------------------------------------------------------
 if __name__ == '__main__':
     app.run(debug=True)

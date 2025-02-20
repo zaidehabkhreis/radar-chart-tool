@@ -387,7 +387,7 @@
     <title>Radar Chart Generator</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* Basic page styles */
+        /* Basic page styles (same as before) */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -463,7 +463,7 @@
             color: red;
         }
 
-        /* Charts container */
+        /* Charts container (blank if you removed spinners) */
         .charts {
             display: flex;
             flex-wrap: wrap;
@@ -494,7 +494,6 @@
             height: 400px;
             display: none; /* hidden until loaded */
         }
-        /* Popup, overlay, etc. remain the same as before */
         .popup {
             display: none;
             position: fixed;
@@ -564,6 +563,7 @@
         <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
     </div>
 
+    <!-- Main container -->
     <div class="container">
         <h1>Radar Chart Generator</h1>
 
@@ -602,6 +602,7 @@
             </div>
         </form>
 
+        <!-- Applied filters display -->
         <div class="applied-filters">
             Filters applied:
             {% for filter in applied_filters %}
@@ -612,41 +613,44 @@
             {% endfor %}
         </div>
 
-        <!-- Search form -->
+        <!-- Search form with new "Show All" button -->
         <form method="GET" action="{{ url_for('index') }}">
             <div class="search-container">
                 <input type="text" name="search_name" placeholder="Filter by Name" value="{{ search_name }}">
                 <button type="submit">Search</button>
+                <!-- New "Show All" button that clears the search name -->
                 <button type="button" onclick="clearSearch()">Clear Name</button>
             </div>
         </form>
 
-        <!-- Server-side rendered first chunk of charts -->
-        <div class="charts" id="chart-container">
-            <!-- We embed the first 6 charts here, no fetch needed -->
-            {{ initial_html|safe }}
-        </div>
+        <!-- The div where charts will be appended in batches of 6 -->
+        <div class="charts" id="chart-container"></div>
 
+        <!-- The overlay for popups -->
         <div id="overlay" class="overlay"></div>
     </div>
 
     <script>
-        // Removes a filter from the URL
+        // Remove a filter from the URL
         function removeFilter(filter) {
             const url = new URL(window.location.href);
             url.searchParams.append('remove_filter', filter);
             window.location.href = url.toString();
         }
 
-        // Clear the search name from the URL
+        // Clear the search_name param and reload => show all
         function clearSearch() {
             const url = new URL(window.location.href);
+            // Remove 'search_name' param if it exists
             if (url.searchParams.has('search_name')) {
                 url.searchParams.delete('search_name');
             }
+            // Also reset offset if you like (not strictly necessary).
+            // Reload page
             window.location.href = url.toString();
         }
 
+        // Popup open/close
         function openPopup(sheetName) {
             document.getElementById('popup-' + sheetName).style.display = 'block';
             document.getElementById('overlay').style.display = 'block';
@@ -656,69 +660,77 @@
             document.getElementById('overlay').style.display = 'none';
         }
 
-        // We already loaded the first 6 server-side, so offset=6 initially
-        let offset = 6;
+        let offset = 0;
         const limit = 6;
         let loading = false;
 
-        // We'll set up the infinite scroll for subsequent charts
-        async function loadNextBatch() {
-            if (loading) return;
-            loading = true;
-
-            let urlParams = new URLSearchParams(window.location.search);
-            let searchName = urlParams.get('search_name') || "";
-            let fetchUrl = `/load_charts?offset=${offset}&search_name=${encodeURIComponent(searchName)}`;
-
-            try {
-                let resp = await fetch(fetchUrl);
-                if (resp.ok) {
-                    let htmlSnippet = await resp.text();
-                    if (!htmlSnippet.trim()) {
-                        // no more charts
-                        window.removeEventListener('scroll', handleScroll);
-                        return;
-                    }
-                    const container = document.getElementById('chart-container');
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = htmlSnippet;
-                    while (tempDiv.firstChild) {
-                        container.appendChild(tempDiv.firstChild);
-                    }
-                    processCharts(container); // e.g., to show iframes, etc.
-                    offset += limit;
-                }
-            } catch(e) {
-                console.error("Error fetching next batch:", e);
-            } finally {
-                loading = false;
-            }
-        }
-
+        // On each appended chart, set up iframe onload
         function processCharts(parentDiv) {
             const chartContainers = parentDiv.querySelectorAll(".chart");
             chartContainers.forEach(container => {
                 let iframe = container.querySelector("iframe");
                 if (!iframe) return;
 
-                // If we want to hide the iframe until loaded:
+                // Wrap iframe in .chart-mid if not present
+                if (!container.querySelector(".chart-mid")) {
+                    const chartMid = document.createElement("div");
+                    chartMid.className = "chart-mid";
+                    container.insertBefore(chartMid, container.firstChild);
+                    chartMid.appendChild(iframe);
+                }
+
+                // On load, check if valid
                 iframe.onload = () => {
                     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                     const iframeBodyText = iframeDoc.body ? iframeDoc.body.textContent : "";
                     if (iframeBodyText.includes("No data available for the selected filters.")) {
                         container.remove();
                     } else {
-                        // show the iframe
                         iframe.style.display = "block";
                     }
                 };
             });
         }
 
+        // Load next batch from /load_charts
+        async function loadNextBatch() {
+            if (loading) return;
+            loading = true;
+
+            let urlParams = new URLSearchParams(window.location.search);
+            let searchName = urlParams.get('search_name') || "";
+
+            let fetchUrl = `/load_charts?offset=${offset}&search_name=${encodeURIComponent(searchName)}`;
+            try {
+                let resp = await fetch(fetchUrl);
+                if (resp.ok) {
+                    let htmlSnippet = await resp.text();
+                    if (!htmlSnippet.trim()) {
+                        window.removeEventListener('scroll', handleScroll);
+                        return;
+                    }
+
+                    const container = document.getElementById('chart-container');
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = htmlSnippet;
+                    while (tempDiv.firstChild) {
+                        container.appendChild(tempDiv.firstChild);
+                    }
+
+                    processCharts(container);
+                    offset += limit;
+                }
+            } catch (e) {
+                console.error("Error loading charts:", e);
+            } finally {
+                loading = false;
+            }
+        }
+
         function handleScroll() {
-            const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-            const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
-            const clientHeight = document.documentElement.clientHeight || window.innerHeight;
+            let scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+            let scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
+            let clientHeight = document.documentElement.clientHeight || window.innerHeight;
 
             if (scrollTop + clientHeight + 300 >= scrollHeight) {
                 loadNextBatch();
@@ -726,15 +738,12 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
-            // We already rendered the first chunk. Let’s do final setup:
-            processCharts(document.getElementById('chart-container'));
-            window.addEventListener('scroll', handleScroll);
+            loadNextBatch();
+            window.addEventListener("scroll", handleScroll);
         });
     </script>
-
 </body>
 </html>
-
 
 
 
