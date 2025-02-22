@@ -512,6 +512,7 @@ from google.cloud import storage
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
+import plotly.graph_objects as go
 
 app = Flask(__name__)
 
@@ -848,7 +849,6 @@ def generate_chart(sheet_name):
             elif op=='>=' and not(a>=val): return "No data available for the selected filters."
             elif op=='<=' and not(a<=val): return "No data available for the selected filters."
 
-    import plotly.graph_objects as go
 
     # Now we want the actual "original pillar" average
     # The old code used:
@@ -904,7 +904,7 @@ def generate_chart(sheet_name):
 
     # shift them up so they're visible
     fig.add_annotation(
-        x=0.08, y=-0.22,
+        x=0.14, y=-0.25,
         text=f"Capacity: {cap_val}%",
         showarrow=False,
         font=dict(color=cap_col,size=12),
@@ -914,8 +914,8 @@ def generate_chart(sheet_name):
         type="rect",
         x0=0.35,
         x1=0.85,
-        y0=-0.20,
-        y1=-0.16,
+        y0=-0.23,
+        y1=-0.19,
         fillcolor=cap_col,
         line=dict(width=0),
         xref="paper",
@@ -923,7 +923,7 @@ def generate_chart(sheet_name):
     )
 
     fig.add_annotation(
-        x=0.08, y=-0.32,
+        x=0.14, y=-0.35,
         text=f"Utilization: {util_val}%",
         showarrow=False,
         font=dict(color=util_col,size=12),
@@ -934,8 +934,8 @@ def generate_chart(sheet_name):
         type="rect",
         x0=0.35,
         x1=0.85,
-        y0=-0.30,
-        y1=-0.26,
+        y0=-0.33,
+        y1=-0.29,
         fillcolor=util_col,
         line=dict(width=0),
         xref="paper",
