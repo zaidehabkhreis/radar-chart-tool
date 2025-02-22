@@ -418,7 +418,6 @@
         .search-container input[type="text"] {
             width:300px; padding:8px; border:1px solid #ddd; border-radius:4px; margin-right:10px;
         }
-
         .applied-filters .filter {
             display:inline-block; padding:5px 10px; margin-right:5px;
             background-color:#f0f0f0; border-radius:4px;
@@ -522,11 +521,13 @@
             {% endfor %}
         </div>
 
-        <!-- Search form -->
+        <!-- Search form with "Clear Name" button -->
         <form method="GET" action="{{ url_for('index') }}">
             <div class="search-container">
                 <input type="text" name="search_name" placeholder="Filter by Name" value="{{ search_name }}">
                 <button type="submit">Search</button>
+                <!-- The new 'Clear Name' button -->
+                <button type="button" onclick="clearSearch()">Clear Name</button>
             </div>
         </form>
 
@@ -542,25 +543,36 @@
             window.location.href = url.toString();
         }
 
-        function openPopup(sheetName) {
-            document.getElementById('popup-' + sheetName).style.display = 'block';
-            document.getElementById('overlay').style.display = 'block';
-        }
-        function closePopup(sheetName) {
-            document.getElementById('popup-' + sheetName).style.display = 'none';
-            document.getElementById('overlay').style.display = 'none';
+        // Clears the 'search_name' param from the URL
+        function clearSearch(){
+            const url = new URL(window.location.href);
+            if(url.searchParams.has('search_name')){
+                url.searchParams.delete('search_name');
+            }
+            // reload the page
+            window.location.href = url.toString();
         }
 
-        function iframeLoaded(iframeElem) {
-            const container = iframeElem.closest(".chart");
-            if (!container) return;
-            const iframeDoc = iframeElem.contentDocument || iframeElem.contentWindow.document;
-            const bodyText = iframeDoc.body ? iframeDoc.body.textContent : "";
+        function openPopup(sheetName){
+            document.getElementById('popup-'+sheetName).style.display='block';
+            document.getElementById('overlay').style.display='block';
+        }
+        function closePopup(sheetName){
+            document.getElementById('popup-'+sheetName).style.display='none';
+            document.getElementById('overlay').style.display='none';
+        }
 
-            if (bodyText.includes("No data available for the selected filters.")) {
+        // Called when <iframe> loads
+        function iframeLoaded(iframeElem){
+            const container= iframeElem.closest(".chart");
+            if(!container) return;
+            const iframeDoc= iframeElem.contentDocument|| iframeElem.contentWindow.document;
+            const text= iframeDoc.body ? iframeDoc.body.textContent:"";
+
+            if(text.includes("No data available for the selected filters.")){
                 container.remove();
-            } else {
-                iframeElem.style.display = "block";
+            } else{
+                iframeElem.style.display='block';
             }
         }
 
@@ -570,30 +582,30 @@
         let totalCharts=0;
         let doneAll=false;
 
-        async function fetchTotalCharts() {
-            const urlParams = new URLSearchParams(window.location.search);
-            let searchName = urlParams.get('search_name') || "";
-            let resp = await fetch(`/count_charts?search_name=${encodeURIComponent(searchName)}`);
-            if (resp.ok) {
-                let data = await resp.json();
+        async function fetchTotalCharts(){
+            const urlParams= new URLSearchParams(window.location.search);
+            let searchName= urlParams.get('search_name')||"";
+            let resp= await fetch(`/count_charts?search_name=${encodeURIComponent(searchName)}`);
+            if(resp.ok){
+                let data= await resp.json();
                 return data.count;
             }
             return 0;
         }
 
-        async function loadNextBatch() {
-            if (loading || doneAll) return;
+        async function loadNextBatch(){
+            if(loading || doneAll) return;
             loading=true;
 
-            if (totalCharts===0) {
+            if(totalCharts===0){
                 totalCharts= await fetchTotalCharts();
-                if (totalCharts===0) {
+                if(totalCharts===0){
                     window.removeEventListener('scroll', handleScroll);
                     loading=false;
                     return;
                 }
             }
-            if (offset>=totalCharts) {
+            if(offset>=totalCharts){
                 doneAll=true;
                 window.removeEventListener('scroll', handleScroll);
                 loading=false;
@@ -605,8 +617,8 @@
 
             const container= document.getElementById('chart-container');
             let placeholdersHTML="";
-            for (let i=0; i<countToCreate; i++) {
-                let placeholderId=`placeholder-${offset+i}`;
+            for(let i=0;i<countToCreate;i++){
+                const placeholderId=`placeholder-${offset+i}`;
                 placeholdersHTML +=`
                 <div class="chart" id="${placeholderId}">
                   <div style="text-align:center;margin-top:60px;">Loading chart...</div>
@@ -623,20 +635,20 @@
                 let placeholderId=`placeholder-${realOffset}`;
                 let fetchUrl=`/load_one_chart?offset=${realOffset}&search_name=${encodeURIComponent(searchName)}`;
 
-                try {
+                try{
                     let resp= await fetch(fetchUrl);
                     if(resp.ok){
-                        let snippet=await resp.text();
+                        let snippet= await resp.text();
                         if(!snippet.trim()){
                             document.getElementById(placeholderId)?.remove();
-                        } else {
-                            let placeholderDiv=document.getElementById(placeholderId);
+                        } else{
+                            let placeholderDiv= document.getElementById(placeholderId);
                             if(placeholderDiv){
                                 placeholderDiv.innerHTML= snippet;
                             }
                         }
                     }
-                } catch(e){
+                }catch(e){
                     console.error("Error fetching single chart:", e);
                 }
             }
@@ -653,7 +665,6 @@
             let scrollTop= document.documentElement.scrollTop||document.body.scrollTop;
             let scrollHeight= document.documentElement.scrollHeight||document.body.scrollHeight;
             let clientHeight= document.documentElement.clientHeight||window.innerHeight;
-
             if(scrollTop+clientHeight+300>=scrollHeight){
                 loadNextBatch();
             }
