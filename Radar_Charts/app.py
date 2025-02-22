@@ -496,6 +496,9 @@
 
 
 
+
+
+
 from flask import Flask, render_template, request, redirect, url_for, make_response
 import pandas as pd
 import json
@@ -510,9 +513,9 @@ from google.oauth2 import service_account
 
 app = Flask(__name__)
 
-# ------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
 # Configuration / Globals
-# ------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
 ADMIN_EMAIL = "tariq.khasawneh@devoteam.com"
 DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
 
@@ -529,16 +532,18 @@ storage_client = storage.Client()
 BUCKET_NAME = "radar-chart-users"
 USERS_FILE_NAME = "users.json"
 
-CHECK_INTERVAL = 60  # how often to check Drive for updates
+CHECK_INTERVAL = 60  # how often we check Google Drive for updates (seconds)
 
-data_dict = {}
-pillar_avg_scores_dict = {}
+data_dict = {}                 # { sheet_name -> DataFrame }
+pillar_avg_scores_dict = {}    # { sheet_name -> DataFrame of Pillar vs average Score }
 latest_hash = None
 last_checked_time = 0
 unique_pillars = []
 
+# --------------------------------------------------------------------------------------
+# User management from GCS
+# --------------------------------------------------------------------------------------
 def fetch_users_from_gcs():
-    """Fetch user credentials from GCS."""
     bucket = storage_client.bucket(BUCKET_NAME)
     blob = bucket.blob(USERS_FILE_NAME)
     if not blob.exists():
@@ -549,7 +554,6 @@ def fetch_users_from_gcs():
     return {u["email"]: u["password"] for u in users_data["users"]}
 
 def save_users_to_gcs(users_dict):
-    """Save updated user credentials back to GCS."""
     bucket = storage_client.bucket(BUCKET_NAME)
     blob = bucket.blob(USERS_FILE_NAME)
     users_data = {"users": [{"email": e, "password": p} for e, p in users_dict.items()]}
@@ -564,43 +568,49 @@ def get_authenticated_user(request):
         return email
     return None
 
-@app.route('/admin/users', methods=['GET','POST'])
+@app.route('/admin/users', methods=['GET', 'POST'])
 def manage_users():
     user = get_authenticated_user(request)
     if user != ADMIN_EMAIL:
         return redirect(url_for('index'))
-    if request.method=='POST':
+
+    if request.method == 'POST':
         action = request.form.get("action")
         email = request.form.get("email")
         password = request.form.get("password")
-        if action=="add" and email and password:
+
+        if action == "add" and email and password:
             if email not in VALID_USERS:
                 VALID_USERS[email] = password
                 save_users_to_gcs(VALID_USERS)
-        elif action=="edit" and email and password:
+        elif action == "edit" and email and password:
             if email in VALID_USERS:
                 VALID_USERS[email] = password
                 save_users_to_gcs(VALID_USERS)
-        elif action=="remove" and email:
+        elif action == "remove" and email:
             if email in VALID_USERS:
                 del VALID_USERS[email]
                 save_users_to_gcs(VALID_USERS)
+
     return render_template('admin.html', users=VALID_USERS, user=user)
 
-@app.route('/login', methods=['GET','POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method=='POST':
+    if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
+
         global VALID_USERS
         VALID_USERS = fetch_users_from_gcs()
-        if email in VALID_USERS and VALID_USERS[email]==password:
+
+        if email in VALID_USERS and VALID_USERS[email] == password:
             resp = make_response(redirect(url_for('index')))
             resp.set_cookie("user_email", email)
             resp.set_cookie("user_password", password)
             return resp
         else:
             return render_template("login.html", error="Invalid email or password")
+
     return render_template("login.html")
 
 @app.route('/logout')
@@ -610,6 +620,9 @@ def logout():
     resp.delete_cookie("user_password")
     return resp
 
+# --------------------------------------------------------------------------------------
+# Google Drive + Data loading
+# --------------------------------------------------------------------------------------
 def calculate_file_hash(file_stream):
     file_stream.seek(0)
     hasher = hashlib.md5()
@@ -621,7 +634,7 @@ def calculate_file_hash(file_stream):
     return hasher.hexdigest()
 
 def fetch_latest_excel_if_updated():
-    """Fetch the latest spreadsheet from Drive if updated."""
+    """Fetch the latest spreadsheet from Google Drive only if an update is detected."""
     global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
     current_time = time.time()
     if current_time - last_checked_time < CHECK_INTERVAL:
@@ -632,15 +645,15 @@ def fetch_latest_excel_if_updated():
         request = drive_service.files().get_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
         file_stream = io.BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
-        done=False
+        done = False
         while not done:
             _, done = downloader.next_chunk()
 
         new_hash = calculate_file_hash(file_stream)
-        if new_hash==latest_hash:
-            return False
-        latest_hash = new_hash
+        if new_hash == latest_hash:
+            return False  # no update
 
+        latest_hash = new_hash
         file_stream.seek(0)
         sheets = pd.ExcelFile(file_stream)
 
@@ -650,21 +663,22 @@ def fetch_latest_excel_if_updated():
 
         for sheet_name in sheets.sheet_names:
             df = sheets.parse(sheet_name)
-            # Clean capacity/utilization columns
-            if 'Capacity' in df.columns and df['Capacity'].dtype=='object':
+
+            # Clean capacity/utilization columns if present
+            if 'Capacity' in df.columns and df['Capacity'].dtype == 'object':
                 df['Capacity'] = df['Capacity'].str.replace('%','').astype(float)
-            if 'Utilization' in df.columns and df['Utilization'].dtype=='object':
+            if 'Utilization' in df.columns and df['Utilization'].dtype == 'object':
                 df['Utilization'] = df['Utilization'].str.replace('%','').astype(float)
 
             new_data_dict[sheet_name] = df
 
+            # Compute avg scores
             if 'Pillar' in df.columns and 'Score' in df.columns:
                 avg_scores = df.groupby('Pillar')['Score'].mean().round(1).reset_index()
                 new_pillar_avg_scores_dict[sheet_name] = avg_scores
                 pillars_in_sheet = df['Pillar'].dropna().unique()
                 all_pillars.update(pillars_in_sheet)
 
-        # Merge with global
         data_dict.update(new_data_dict)
         pillar_avg_scores_dict.update(new_pillar_avg_scores_dict)
 
@@ -683,6 +697,9 @@ def fetch_latest_excel_if_updated():
 def check_for_updates():
     fetch_latest_excel_if_updated()
 
+# --------------------------------------------------------------------------------------
+# Filtering
+# --------------------------------------------------------------------------------------
 def get_applied_filters(request):
     af_str = request.cookies.get('applied_filters','[]')
     return json.loads(af_str)
@@ -691,7 +708,7 @@ def set_applied_filters(response, applied_filters):
     response.set_cookie('applied_filters', json.dumps(applied_filters))
 
 def filter_data(data, applied_filters):
-    """Applies the Pillar-based filters to data."""
+    """Apply all Pillar-based filters to produce a dict of {sheet_name -> DataFrame}."""
     filtered_data_dict = {}
     for sheet_name, df in data.items():
         include_sheet = True
@@ -699,18 +716,19 @@ def filter_data(data, applied_filters):
             avg_scores = pillar_avg_scores_dict.get(sheet_name, pd.DataFrame())
             for filter_str in applied_filters:
                 try:
-                    parts = filter_str.replace('Pillar: ', '').split(' ', 2)
+                    parts = filter_str.replace('Pillar: ','').split(' ',2)
                     if len(parts)!=3:
                         continue
                     pillar, op, val_str = parts
                     val = float(val_str)
 
                     if pillar in avg_scores['Pillar'].values:
-                        avg_score = avg_scores.loc[avg_scores['Pillar']==pillar, 'Score'].values[0]
+                        avg_score = avg_scores.loc[avg_scores['Pillar']==pillar,'Score'].values[0]
                     else:
-                        avg_score=None
+                        avg_score = None
                     if pd.isna(avg_score) or avg_score is None:
-                        include_sheet=False; break
+                        include_sheet=False
+                        break
 
                     if op=='>' and not avg_score>val: include_sheet=False; break
                     elif op=='<' and not avg_score<val: include_sheet=False; break
@@ -721,16 +739,22 @@ def filter_data(data, applied_filters):
                     print("Filter error:", e, "Filter:", filter_str)
                     include_sheet=False
                     break
+
         if include_sheet and not df.empty:
-            filtered_data_dict[sheet_name]=df
+            filtered_data_dict[sheet_name] = df
+
     return filtered_data_dict
 
+# --------------------------------------------------------------------------------------
+# Main index (rendering index.html)
+# --------------------------------------------------------------------------------------
 @app.route('/', methods=['GET','POST'])
 def index():
     user = get_authenticated_user(request)
     if not user:
         return redirect(url_for('login'))
 
+    # removing a filter via URL param
     remove_filter = request.args.get('remove_filter')
     applied_filters = get_applied_filters(request)
     if remove_filter:
@@ -739,20 +763,21 @@ def index():
         set_applied_filters(resp, applied_filters)
         return resp
 
+    # adding a filter
     if request.method=='POST':
         fp = request.form.get('filter_pillar')
         fo = request.form.get('filter_operator')
         fv = request.form.get('filter_value1')
-        fstr=f"Pillar: {fp} {fo} {fv}"
+        fstr = f"Pillar: {fp} {fo} {fv}"
         if fstr not in applied_filters:
             applied_filters.append(fstr)
-        resp=make_response(redirect(url_for('index')))
+        resp = make_response(redirect(url_for('index')))
         set_applied_filters(resp, applied_filters)
         return resp
 
     search_name = request.args.get('search_name','').lower()
 
-    # We do NOT load charts here, just render the template. 
+    # We do NOT load all charts here; we only render the template with filters/pillars.
     return render_template(
         'index.html',
         pillars=unique_pillars,
@@ -761,20 +786,28 @@ def index():
         user=user
     )
 
+# --------------------------------------------------------------------------------------
+# Count how many charts exist after filtering + searching
+# --------------------------------------------------------------------------------------
 @app.route('/count_charts')
 def count_charts():
-    """Return how many charts exist after filters/search."""
     user = get_authenticated_user(request)
     if not user:
-        return {"count":0}
+        return {"count": 0}
     applied_filters = get_applied_filters(request)
     filtered = filter_data(data_dict, applied_filters)
     search_name = request.args.get('search_name','').lower()
+
+    # get all valid sheets
     sheets = [s for s, df in filtered.items() if not df.empty]
     if search_name:
         sheets = [s for s in sheets if s.lower()==search_name]
+
     return {"count": len(sheets)}
 
+# --------------------------------------------------------------------------------------
+# Single chart generation for each <iframe>
+# --------------------------------------------------------------------------------------
 @app.route('/chart/<sheet_name>')
 def generate_chart(sheet_name):
     user = get_authenticated_user(request)
@@ -782,15 +815,16 @@ def generate_chart(sheet_name):
         return redirect(url_for('login'))
 
     if sheet_name not in data_dict:
-        return "Sheet not found",404
+        return "Sheet not found", 404
 
     df = data_dict[sheet_name].copy()
     if 'Score' not in df.columns or 'Pillar' not in df.columns:
-        return "Invalid data format for chart generation.",404
+        return "Invalid data format for chart generation.", 404
 
-    # Check filters
+    # Check if filter disqualifies this sheet
     applied_filters = get_applied_filters(request)
     avg_scores = df.groupby('Pillar')['Score'].mean().round(1).reset_index()
+
     import re
     for filter_str in applied_filters:
         if not filter_str.startswith("Pillar: "):
@@ -798,47 +832,49 @@ def generate_chart(sheet_name):
         match = re.match(r"Pillar:\s*(.+)\s+(>|<|=|>=|<=)\s+([0-9.]+)", filter_str)
         if match:
             pillar, op, val_str = match.groups()
-            val=float(val_str)
+            val = float(val_str)
             if pillar not in avg_scores['Pillar'].values:
-                return "No data available for the selected filters.",404
-            sc= avg_scores.loc[avg_scores['Pillar']==pillar, 'Score'].values[0]
-            if op=='>' and not sc>val: return "No data available for the selected filters.",404
-            elif op=='<' and not sc<val: return "No data available for the selected filters.",404
-            elif op=='=' and not sc==val: return "No data available for the selected filters.",404
-            elif op=='>=' and not sc>=val: return "No data available for the selected filters.",404
-            elif op=='<=' and not sc<=val: return "No data available for the selected filters.",404
+                return "No data available for the selected filters.", 404
+            sc = avg_scores.loc[avg_scores['Pillar']==pillar,'Score'].values[0]
+            if op=='>' and not sc>val: return "No data available for the selected filters.", 404
+            elif op=='<' and not sc<val: return "No data available for the selected filters.", 404
+            elif op=='=' and not sc==val: return "No data available for the selected filters.", 404
+            elif op=='>=' and not sc>=val: return "No data available for the selected filters.", 404
+            elif op=='<=' and not sc<=val: return "No data available for the selected filters.", 404
 
-    # Build the Plotly figure
+    # Build the radar chart via Plotly
     import plotly.graph_objects as go
-    fig=go.Figure()
+    fig = go.Figure()
     categories = avg_scores['Pillar'].tolist()
     values = avg_scores['Score'].tolist()
     categories.append(categories[0])
     values.append(values[0])
 
-    hover_data=[]
-    for p in categories:
-        if p not in df['Pillar'].values:
-            hover_data.append(f"No data for {p}")
+    # Hover data
+    hover_data = []
+    for cat in categories:
+        if cat not in df['Pillar'].values:
+            hover_data.append(f"No data for {cat}")
             continue
-        p_df = df[df['Pillar']==p]
-        sskills = p_df['Specific Skill'].tolist()
-        scs = p_df['Score'].tolist()
-        sc_avg = avg_scores.loc[avg_scores['Pillar']==p,'Score'].values[0] if p in avg_scores['Pillar'].values else 'N/A'
-        info = f"Averaged Score: {sc_avg}<br>Attribute: {p}<br>"
+        cat_df = df[df['Pillar'] == cat]
+        sskills = cat_df['Specific Skill'].tolist()
+        scs = cat_df['Score'].tolist()
+        cat_avg = avg_scores.loc[avg_scores['Pillar']==cat,'Score'].values[0] if cat in avg_scores['Pillar'].values else 'N/A'
+        info = f"Averaged Score: {cat_avg}<br>Attribute: {cat}<br>"
         for sk, scv in zip(sskills, scs):
             info+=f"<span style='font-size:10px;'>{sk}: {scv}</span><br>"
         hover_data.append(info)
 
     fig.add_trace(go.Scatterpolar(
-        r=values, theta=categories, fill='toself', name=sheet_name,
+        r=values, theta=categories,
+        fill='toself', name=sheet_name,
         hoverinfo='text', text=hover_data
     ))
 
     def safe_int(x):
         try: return int(round(x))
         except: return 0
-    cap_val= safe_int(df.loc[0,'Capacity']*100 if 'Capacity' in df.columns and not df.empty else 0)
+    cap_val = safe_int(df.loc[0,'Capacity']*100 if 'Capacity' in df.columns and not df.empty else 0)
     util_val= safe_int(df.loc[0,'Utilization']*100 if 'Utilization' in df.columns and not df.empty else 0)
 
     def capacity_color(c):
@@ -852,28 +888,31 @@ def generate_chart(sheet_name):
         elif u<=95: return '#FFCB6B'
         else: return '#6EC664'
 
-    cap_col=capacity_color(cap_val)
-    util_col=utilization_color(util_val)
+    cap_col = capacity_color(cap_val)
+    util_col = utilization_color(util_val)
 
     fig.add_annotation(
-        x=0.14, y=-0.25, showarrow=False,
-        text=f"Capacity: {cap_val}%",
-        font=dict(color=cap_col, size=12),
+        x=0.14, y=-0.25,
+        text=f"Capacity: {cap_val}%", showarrow=False,
+        font=dict(color=cap_col,size=12),
         xref="paper", yref="paper"
     )
     fig.add_shape(
-        type="rect", x0=0.35, x1=0.85, y0=-0.23, y1=-0.19,
+        type="rect", x0=0.35, x1=0.85,
+        y0=-0.23, y1=-0.19,
         fillcolor=cap_col, line=dict(width=0),
         xref="paper", yref="paper"
     )
+
     fig.add_annotation(
-        x=0.14, y=-0.35, showarrow=False,
-        text=f"Utilization: {util_val}%",
+        x=0.14, y=-0.35,
+        text=f"Utilization: {util_val}%", showarrow=False,
         font=dict(color=util_col,size=12),
         xref="paper", yref="paper"
     )
     fig.add_shape(
-        type="rect", x0=0.35, x1=0.85, y0=-0.33, y1=-0.29,
+        type="rect", x0=0.35, x1=0.85,
+        y0=-0.33, y1=-0.29,
         fillcolor=util_col, line=dict(width=0),
         xref="paper", yref="paper"
     )
@@ -887,34 +926,36 @@ def generate_chart(sheet_name):
     )
     return fig.to_html(full_html=False)
 
+# --------------------------------------------------------------------------------------
+# Return exactly ONE chart snippet at given offset (or "" if no more charts)
+# --------------------------------------------------------------------------------------
 @app.route('/load_one_chart')
 def load_one_chart():
-    """Return exactly one chart snippet for a given offset."""
     user = get_authenticated_user(request)
     if not user:
-        return "Not logged in",401
+        return "Not logged in", 401
 
     offset_str = request.args.get('offset','0')
     search_name = request.args.get('search_name','').lower()
     try:
         offset = int(offset_str)
     except:
-        offset=0
+        offset = 0
 
     applied_filters = get_applied_filters(request)
     filtered = filter_data(data_dict, applied_filters)
-    sheets = [s for s,df in filtered.items() if not df.empty]
+    sheets = [s for s, df in filtered.items() if not df.empty]
     if search_name:
-        sheets = [s for s in sheets if s.lower()==search_name]
+        sheets = [s for s in sheets if s.lower() == search_name]
 
-    if offset>=len(sheets):
-        return ""  # no more
+    if offset >= len(sheets):
+        return ""  # no more charts at this offset
 
     sheet_name = sheets[offset]
     df = data_dict[sheet_name]
 
+    # We do not add another .chart wrapper here (the placeholders have it).
     snippet = f"""
-    <!-- We do NOT wrap .chart again here, since we already do it in placeholders -->
     <div class="chart-mid">
         <iframe src="{url_for('generate_chart', sheet_name=sheet_name)}" frameborder="0"></iframe>
     </div>
@@ -940,7 +981,17 @@ def load_one_chart():
     """
     return snippet
 
-if __name__=='__main__':
+if __name__ == '__main__':
     app.run(debug=True)
+
+
+
+
+
+
+
+
+
+
 
 
