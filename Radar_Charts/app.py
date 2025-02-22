@@ -904,7 +904,7 @@ def generate_chart(sheet_name):
 
     # shift them up so they're visible
     fig.add_annotation(
-        x=0.14, y=-0.22,
+        x=0.14, y=-0.23,
         text=f"Capacity: {cap_val}%",
         showarrow=False,
         font=dict(color=cap_col,size=12),
@@ -923,7 +923,7 @@ def generate_chart(sheet_name):
     )
 
     fig.add_annotation(
-        x=0.14, y=-0.32,
+        x=0.14, y=-0.33,
         text=f"Utilization: {util_val}%",
         showarrow=False,
         font=dict(color=util_col,size=12),
