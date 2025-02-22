@@ -619,17 +619,10 @@
             for(let i=0;i<countToCreate;i++){
                 const placeholderId=`placeholder-${offset+i}`;
                 placeholdersHTML +=`
-          <div class="chart" id="${placeholderId}">
-              <!-- Top area (chart-mid) shows "Loading chart..." -->
-              <div class="chart-mid">
-                  <div style="text-align:center; margin-top:60px;">Loading chart...</div>
-              </div>
-
-              <!-- We place name & button at the bottom from the start -->
-              <p style="margin-top:auto; font-weight:bold; margin-bottom:5px;">(Loading name...)</p>
-              <button style="margin-bottom:5px;" disabled>Show Engagements</button>
-          </div>
-        `;
+                <div class="chart" id="${placeholderId}">
+                  <div style="text-align:center;margin-top:60px;">Loading chart...</div>
+                </div>
+                `;
             }
             container.insertAdjacentHTML('beforeend', placeholdersHTML);
 
