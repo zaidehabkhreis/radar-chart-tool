@@ -477,8 +477,8 @@ def load_one_chart():
     if search_name:
         search_words = search_name.split()
         sheets = [
-            s.strip() for s in sheets
-            if all(word in s.strip().lower() for word in search_words)
+            s for s in sheets
+            if all(word in s.lower() for word in search_words)
         ]
 
     if offset>= len(sheets):
