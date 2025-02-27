@@ -18,7 +18,7 @@ app = Flask(__name__)
 # Configuration / Globals
 # --------------------------------------------------------------------------------------
 ADMIN_EMAIL = "tariq.khasawneh@devoteam.com"
-DRIVE_FILE_ID = "1PpMb1EcjN_YUj3dtWDY5_oJphov6Q1Dc"
+DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
 
 service_account_json = os.getenv("SERVICE_ACCOUNT")
 if service_account_json:
@@ -303,8 +303,7 @@ def count_charts():
 
     sheets=[s for s,df in filtered.items() if not df.empty]
     if search_name:
-        # if your data's sheet names have special case, unify .lower()
-        sheets=[s for s in sheets if s.lower()==search_name]
+        sheets = [s for s in sheets if search_name in s.lower()]
 
     return {"count": len(sheets)}
 
@@ -402,7 +401,7 @@ def generate_chart(sheet_name):
 
     # shift them up so they're visible
     fig.add_annotation(
-        x=0.14, y=-0.23,
+        x=0.14, y=-0.15,
         text=f"Capacity: {cap_val}%",
         showarrow=False,
         font=dict(color=cap_col,size=12),
@@ -412,8 +411,8 @@ def generate_chart(sheet_name):
         type="rect",
         x0=0.35,
         x1=0.85,
-        y0=-0.23,
-        y1=-0.19,
+        y0=-0.15,
+        y1=-0.11,
         fillcolor=cap_col,
         line=dict(width=0),
         xref="paper",
@@ -421,7 +420,7 @@ def generate_chart(sheet_name):
     )
 
     fig.add_annotation(
-        x=0.14, y=-0.33,
+        x=0.14, y=-0.22,
         text=f"Utilization: {util_val}%",
         showarrow=False,
         font=dict(color=util_col,size=12),
@@ -432,8 +431,8 @@ def generate_chart(sheet_name):
         type="rect",
         x0=0.35,
         x1=0.85,
-        y0=-0.33,
-        y1=-0.29,
+        y0=-0.22,
+        y1=-0.18,
         fillcolor=util_col,
         line=dict(width=0),
         xref="paper",
