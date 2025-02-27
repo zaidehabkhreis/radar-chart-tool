@@ -18,7 +18,7 @@ app = Flask(__name__)
 # Configuration / Globals
 # --------------------------------------------------------------------------------------
 ADMIN_EMAIL = "tariq.khasawneh@devoteam.com"
-DRIVE_FILE_ID = "1ZuIYUnITxC2G7Qrmb6yK_SL3LI40XTpi"
+DRIVE_FILE_ID = "1PpMb1EcjN_YUj3dtWDY5_oJphov6Q1Dc"
 
 service_account_json = os.getenv("SERVICE_ACCOUNT")
 if service_account_json:
@@ -40,6 +40,7 @@ pillar_avg_scores_dict = {}
 latest_hash = None
 last_checked_time = 0
 unique_pillars = []
+
 
 # --------------------------------------------------------------------------------------
 # User Management from GCS
