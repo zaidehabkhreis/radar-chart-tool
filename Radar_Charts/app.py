@@ -143,31 +143,31 @@ def fetch_latest_excel_if_updated():
         request = drive_service.files().get_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
         file_stream = io.BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
-        done=False
+        done = False
         while not done:
             _, done = downloader.next_chunk()
 
         new_hash = calculate_file_hash(file_stream)
         if new_hash == latest_hash:
             return False
-        latest_hash=new_hash
+        latest_hash = new_hash
 
         file_stream.seek(0)
         sheets = pd.ExcelFile(file_stream)
 
-        new_data_dict={}
-        new_pillar_avg_scores_dict={}
-        all_pillars=set()
+        new_data_dict = {}
+        new_pillar_avg_scores_dict = {}
+        all_pillars = set()
 
         for sheet_name in sheets.sheet_names:
             df = sheets.parse(sheet_name)
-            # capacity/utilization
-            if 'Capacity' in df.columns and df['Capacity'].dtype=='object':
-                df['Capacity']= df['Capacity'].str.replace('%','').astype(float)
-            if 'Utilization' in df.columns and df['Utilization'].dtype=='object':
-                df['Utilization']= df['Utilization'].str.replace('%','').astype(float)
+            # Handle 'Capacity'/'Utilization'
+            if 'Capacity' in df.columns and df['Capacity'].dtype == 'object':
+                df['Capacity'] = df['Capacity'].str.replace('%','').astype(float)
+            if 'Utilization' in df.columns and df['Utilization'].dtype == 'object':
+                df['Utilization'] = df['Utilization'].str.replace('%','').astype(float)
 
-            new_data_dict[sheet_name]= df
+            new_data_dict[sheet_name] = df
 
             if 'Pillar' in df.columns and 'Score' in df.columns:
                 avg_scores = df.groupby('Pillar')['Score'].mean().round(1).reset_index()
@@ -175,19 +175,22 @@ def fetch_latest_excel_if_updated():
                 pillars_in_sheet = df['Pillar'].dropna().unique()
                 all_pillars.update(pillars_in_sheet)
 
-        data_dict.update(new_data_dict)
-        pillar_avg_scores_dict.update(new_pillar_avg_scores_dict)
+        # Instead of merging, we replace the dictionaries
+        data_dict = new_data_dict
+        pillar_avg_scores_dict = new_pillar_avg_scores_dict
 
         unique_pillars.clear()
         if all_pillars:
-            # if you want them exactly as in data, remove .lower() here
             unique_pillars.extend(sorted(all_pillars))
         else:
             unique_pillars.append("No Data")
+
         return True
+
     except Exception as e:
         print("Error fetching spreadsheet:", e)
         return False
+
 
 @app.before_request
 def check_for_updates():
