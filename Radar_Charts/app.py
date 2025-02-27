@@ -471,12 +471,10 @@ def load_one_chart():
     filtered= filter_data(data_dict, applied_filters)
     sheets=[s for s,df in filtered.items() if not df.empty]
     if search_name:
-        # Split user search into separate words
-        search_words = search_name.lower().split()
-        # Keep only sheets where *all* the words appear somewhere in the sheet name
+        search_words = search_name.split()
         sheets = [
-            s for s in sheets
-            if all(word in s.lower() for word in search_words)
+            s.strip() for s in sheets
+            if all(word in s.strip().lower() for word in search_words)
         ]
 
     if offset>= len(sheets):
