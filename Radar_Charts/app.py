@@ -33,8 +33,6 @@ storage_client = storage.Client()
 BUCKET_NAME = "new-radar-chart-users"
 USERS_FILE_NAME = "users.json"
 
-CHECK_INTERVAL = 60
-
 data_dict = {}
 pillar_avg_scores_dict = {}
 latest_hash = None
@@ -134,12 +132,9 @@ def calculate_file_hash(file_stream):
 
 def fetch_latest_excel_if_updated():
     global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
-    current_time = time.time()
-    if current_time - last_checked_time < CHECK_INTERVAL:
-        return False
-    last_checked_time = current_time
-
+    
     try:
+        # Always download the file each request
         request = drive_service.files().get_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
         file_stream = io.BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
@@ -150,6 +145,8 @@ def fetch_latest_excel_if_updated():
         new_hash = calculate_file_hash(file_stream)
         if new_hash == latest_hash:
             return False
+
+        # If hash changed, parse the file again:
         latest_hash = new_hash
 
         file_stream.seek(0)
@@ -175,7 +172,7 @@ def fetch_latest_excel_if_updated():
                 pillars_in_sheet = df['Pillar'].dropna().unique()
                 all_pillars.update(pillars_in_sheet)
 
-        # Instead of merging, we replace the dictionaries
+        # Replace the global data
         data_dict = new_data_dict
         pillar_avg_scores_dict = new_pillar_avg_scores_dict
 
