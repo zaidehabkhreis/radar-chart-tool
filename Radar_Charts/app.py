@@ -305,9 +305,13 @@ def count_charts():
     search_name= request.args.get('search_name','').lower()
 
     sheets=[s for s,df in filtered.items() if not df.empty]
+    # Apply partial match if user typed something
     if search_name:
-        # if your data's sheet names have special case, unify .lower()
-        sheets=[s for s in sheets if s.lower()==search_name]
+        search_words = [w.strip() for w in search_name.split() if w.strip()]
+        sheets = [
+            s for s in sheets
+            if all(word in s.lower() for word in search_words)
+        ]
 
     return {"count": len(sheets)}
 
