@@ -134,24 +134,13 @@ def calculate_file_hash(file_stream):
     return hasher.hexdigest()
 
 def fetch_latest_excel_if_updated():
-    global data_dict, pillar_avg_scores_dict, unique_pillars
-    global last_mod_time, latest_hash  # track both mod time and file hash
+    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
+    current_time = time.time()
+    if current_time - last_checked_time < CHECK_INTERVAL:
+        return False
+    last_checked_time = current_time
 
     try:
-        # 1) Get metadata for modifiedTime
-        file_metadata = drive_service.files().get(
-            fileId=DRIVE_FILE_ID,
-            fields="modifiedTime"
-        ).execute()
-
-        # For example: '2023-12-25T10:43:59.000Z'
-        mod_time = file_metadata["modifiedTime"]
-
-        # 2) If mod_time is unchanged, do nothing
-        if mod_time == last_mod_time:
-            return False
-
-        # 3) Download the file only if mod_time changed
         request = drive_service.files().get_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
         file_stream = io.BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
@@ -159,14 +148,11 @@ def fetch_latest_excel_if_updated():
         while not done:
             _, done = downloader.next_chunk()
 
-        # 4) Compute hash to confirm content changed
         new_hash = calculate_file_hash(file_stream)
         if new_hash == latest_hash:
-            # The mod_time changed in Drive's metadata, but actual file content is the same
-            # If you want to re-parse anyway, remove this 'return False'
             return False
+        latest_hash = new_hash
 
-        # 5) Content actually changed, so parse
         file_stream.seek(0)
         sheets = pd.ExcelFile(file_stream)
 
@@ -190,7 +176,7 @@ def fetch_latest_excel_if_updated():
                 pillars_in_sheet = df['Pillar'].dropna().unique()
                 all_pillars.update(pillars_in_sheet)
 
-        # 6) Update global data
+        # Instead of merging, we replace the dictionaries
         data_dict = new_data_dict
         pillar_avg_scores_dict = new_pillar_avg_scores_dict
 
@@ -200,16 +186,11 @@ def fetch_latest_excel_if_updated():
         else:
             unique_pillars.append("No Data")
 
-        # 7) Finally, remember new mod time + hash
-        last_mod_time = mod_time
-        latest_hash = new_hash
-
         return True
 
     except Exception as e:
         print("Error fetching spreadsheet:", e)
         return False
-
 
 
 @app.before_request
