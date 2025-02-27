@@ -140,7 +140,7 @@ def fetch_latest_excel_if_updated():
     last_checked_time = current_time
 
     try:
-        request = drive_service.files().get_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
+        request = drive_service.files().export_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
         file_stream = io.BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
         done = False
