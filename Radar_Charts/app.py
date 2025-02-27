@@ -38,7 +38,6 @@ CHECK_INTERVAL = 10
 data_dict = {}
 pillar_avg_scores_dict = {}
 latest_hash = None
-last_mod_time = None
 last_checked_time = 0
 unique_pillars = []
 
