@@ -303,7 +303,8 @@ def count_charts():
 
     sheets=[s for s,df in filtered.items() if not df.empty]
     if search_name:
-        sheets = [s for s in sheets if search_name in s.lower()]
+        # if your data's sheet names have special case, unify .lower()
+        sheets=[s for s in sheets if s.lower()==search_name]
 
     return {"count": len(sheets)}
 
@@ -399,20 +400,19 @@ def generate_chart(sheet_name):
     cap_col= capacity_color(cap_val)
     util_col= utilization_color(util_val)
 
-    # shift them up so they're visible
     fig.add_annotation(
-        x=0.14, y=-0.15,
+        x=0.14, y=-0.18,  # between ~-0.23 (original) and -0.15 (new)
         text=f"Capacity: {cap_val}%",
         showarrow=False,
-        font=dict(color=cap_col,size=12),
+        font=dict(color=cap_col, size=12),
         xref="paper", yref="paper"
     )
     fig.add_shape(
         type="rect",
-        x0=0.35,
+        x0=0.35, 
         x1=0.85,
-        y0=-0.15,
-        y1=-0.11,
+        y0=-0.18,  # aligns with the label’s y so the bar is to the right
+        y1=-0.14,  # a bit of height for the bar
         fillcolor=cap_col,
         line=dict(width=0),
         xref="paper",
@@ -420,19 +420,18 @@ def generate_chart(sheet_name):
     )
 
     fig.add_annotation(
-        x=0.14, y=-0.22,
+        x=0.14, y=-0.25,  # between ~-0.33 (original) and -0.22 (new)
         text=f"Utilization: {util_val}%",
         showarrow=False,
-        font=dict(color=util_col,size=12),
-        xref="paper",
-        yref="paper"
+        font=dict(color=util_col, size=12),
+        xref="paper", yref="paper"
     )
     fig.add_shape(
         type="rect",
         x0=0.35,
         x1=0.85,
-        y0=-0.22,
-        y1=-0.18,
+        y0=-0.25,
+        y1=-0.21,
         fillcolor=util_col,
         line=dict(width=0),
         xref="paper",
@@ -469,7 +468,13 @@ def load_one_chart():
     filtered= filter_data(data_dict, applied_filters)
     sheets=[s for s,df in filtered.items() if not df.empty]
     if search_name:
-        sheets=[s for s in sheets if s.lower()==search_name]
+        # Split user search into separate words
+        search_words = search_name.lower().split()
+        # Keep only sheets where *all* the words appear somewhere in the sheet name
+        sheets = [
+            s for s in sheets
+            if all(word in s.lower() for word in search_words)
+        ]
 
     if offset>= len(sheets):
         return ""
