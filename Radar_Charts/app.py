@@ -33,13 +33,13 @@ storage_client = storage.Client()
 BUCKET_NAME = "new-radar-chart-users"
 USERS_FILE_NAME = "users.json"
 
+CHECK_INTERVAL = 10
 
 data_dict = {}
 pillar_avg_scores_dict = {}
 latest_hash = None
 last_checked_time = 0
 unique_pillars = []
-last_mod_time = None 
 
 # --------------------------------------------------------------------------------------
 # User Management from GCS
@@ -133,30 +133,24 @@ def calculate_file_hash(file_stream):
     return hasher.hexdigest()
 
 def fetch_latest_excel_if_updated():
-    global data_dict, pillar_avg_scores_dict, unique_pillars
-    global last_mod_time
+    global latest_hash, data_dict, pillar_avg_scores_dict, unique_pillars, last_checked_time
+    current_time = time.time()
+    if current_time - last_checked_time < CHECK_INTERVAL:
+        return False
+    last_checked_time = current_time
 
     try:
-        # 1) Get metadata to check modifiedTime
-        file_metadata = drive_service.files().get(
-            fileId=DRIVE_FILE_ID,
-            fields="modifiedTime"
-        ).execute()
-
-        # Example: '2023-12-25T10:43:59.000Z'
-        mod_time = file_metadata["modifiedTime"]
-
-        # 2) If mod_time is unchanged from our global last_mod_time, skip re-parsing
-        if mod_time == last_mod_time:
-            return False  # Nothing new
-
-        # 3) Download the file only if modifiedTime changed
         request = drive_service.files().get_media(fileId=DRIVE_FILE_ID, supportsAllDrives=True)
         file_stream = io.BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
         done = False
         while not done:
             _, done = downloader.next_chunk()
+
+        new_hash = calculate_file_hash(file_stream)
+        if new_hash == latest_hash:
+            return False
+        latest_hash = new_hash
 
         file_stream.seek(0)
         sheets = pd.ExcelFile(file_stream)
@@ -181,7 +175,7 @@ def fetch_latest_excel_if_updated():
                 pillars_in_sheet = df['Pillar'].dropna().unique()
                 all_pillars.update(pillars_in_sheet)
 
-        # Replace the global data
+        # Instead of merging, we replace the dictionaries
         data_dict = new_data_dict
         pillar_avg_scores_dict = new_pillar_avg_scores_dict
 
@@ -191,15 +185,11 @@ def fetch_latest_excel_if_updated():
         else:
             unique_pillars.append("No Data")
 
-        # 4) Update last_mod_time
-        last_mod_time = mod_time
-
         return True
 
     except Exception as e:
         print("Error fetching spreadsheet:", e)
         return False
-
 
 
 @app.before_request
