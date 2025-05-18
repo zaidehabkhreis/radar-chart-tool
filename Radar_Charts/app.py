@@ -30,7 +30,7 @@ else:
 drive_service = build("drive", "v3", credentials=credentials)
 
 storage_client = storage.Client()
-BUCKET_NAME = "new-radar-chart-users"
+BUCKET_NAME = "new-radar-chart-users2"
 USERS_FILE_NAME = "users.json"
 
 CHECK_INTERVAL = 10
