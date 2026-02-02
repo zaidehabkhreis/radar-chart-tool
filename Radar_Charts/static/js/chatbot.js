@@ -1,0 +1,179 @@
+/**
+ * Chatbot Widget JavaScript
+ * Handles chat interactions with the Gemini-powered assistant
+ */
+
+class ChatBot {
+    constructor() {
+        this.container = document.getElementById('chat-container');
+        this.toggleBtn = document.getElementById('chat-toggle-btn');
+        this.messagesContainer = document.getElementById('chat-messages');
+        this.input = document.getElementById('chat-input');
+        this.sendBtn = document.getElementById('chat-send-btn');
+        this.suggestionsContainer = document.getElementById('chat-suggestions');
+
+        this.chatHistory = [];
+        this.isOpen = false;
+        this.isLoading = false;
+
+        this.init();
+    }
+
+    init() {
+        // Toggle chat
+        this.toggleBtn.addEventListener('click', () => this.toggle());
+
+        // Send message
+        this.sendBtn.addEventListener('click', () => this.sendMessage());
+
+        // Enter key to send
+        this.input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        // Suggestion buttons
+        this.suggestionsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('suggestion-btn')) {
+                this.input.value = e.target.textContent;
+                this.sendMessage();
+            }
+        });
+    }
+
+    toggle() {
+        this.isOpen = !this.isOpen;
+        this.container.classList.toggle('active', this.isOpen);
+        this.toggleBtn.classList.toggle('active', this.isOpen);
+
+        if (this.isOpen) {
+            this.input.focus();
+            // Show welcome message if no history
+            if (this.chatHistory.length === 0) {
+                this.showWelcome();
+            }
+        }
+    }
+
+    showWelcome() {
+        const welcome = document.createElement('div');
+        welcome.className = 'welcome-message';
+        welcome.innerHTML = `
+            <h4>Hi! I'm your staffing assistant</h4>
+            <p>Ask me about employee skills, availability, or help finding the right team for your project.</p>
+        `;
+        this.messagesContainer.appendChild(welcome);
+    }
+
+    async sendMessage() {
+        const message = this.input.value.trim();
+        if (!message || this.isLoading) return;
+
+        // Remove welcome message if present
+        const welcome = this.messagesContainer.querySelector('.welcome-message');
+        if (welcome) welcome.remove();
+
+        // Hide suggestions after first message
+        this.suggestionsContainer.style.display = 'none';
+
+        // Add user message
+        this.addMessage(message, 'user');
+        this.chatHistory.push({ role: 'user', content: message });
+
+        // Clear input
+        this.input.value = '';
+
+        // Show typing indicator
+        this.showTyping();
+        this.isLoading = true;
+        this.sendBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    question: message,
+                    history: this.chatHistory.slice(0, -1) // Exclude current message
+                }),
+            });
+
+            const data = await response.json();
+
+            // Remove typing indicator
+            this.hideTyping();
+
+            if (data.error) {
+                this.addMessage(data.error, 'assistant error');
+            } else {
+                this.addMessage(data.answer, 'assistant');
+                this.chatHistory.push({ role: 'assistant', content: data.answer });
+            }
+        } catch (error) {
+            this.hideTyping();
+            this.addMessage('Failed to connect to the server. Please try again.', 'assistant error');
+        } finally {
+            this.isLoading = false;
+            this.sendBtn.disabled = false;
+            this.input.focus();
+        }
+    }
+
+    addMessage(content, type) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${type}`;
+
+        // Convert markdown-like formatting to HTML
+        let formattedContent = this.formatMessage(content);
+        messageDiv.innerHTML = formattedContent;
+
+        this.messagesContainer.appendChild(messageDiv);
+        this.scrollToBottom();
+    }
+
+    formatMessage(content) {
+        // Convert **bold** to <strong>
+        content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // Convert bullet points
+        content = content.replace(/^[•\-\*]\s+(.+)$/gm, '<li>$1</li>');
+
+        // Wrap consecutive <li> in <ul>
+        content = content.replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`);
+
+        // Convert line breaks
+        content = content.replace(/\n/g, '<br>');
+
+        // Clean up double <br> after </ul>
+        content = content.replace(/<\/ul><br>/g, '</ul>');
+
+        return content;
+    }
+
+    showTyping() {
+        const typing = document.createElement('div');
+        typing.className = 'typing-indicator';
+        typing.id = 'typing-indicator';
+        typing.innerHTML = '<span></span><span></span><span></span>';
+        this.messagesContainer.appendChild(typing);
+        this.scrollToBottom();
+    }
+
+    hideTyping() {
+        const typing = document.getElementById('typing-indicator');
+        if (typing) typing.remove();
+    }
+
+    scrollToBottom() {
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    }
+}
+
+// Initialize chatbot when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.chatBot = new ChatBot();
+});

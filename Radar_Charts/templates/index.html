@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Radar Chart Generator</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chatbot.css') }}">
     <style>
         body {
             font-family: Arial, sans-serif; margin:0; padding:0; background-color:#f4f4f4;
@@ -150,6 +151,10 @@
         <div id="overlay" class="overlay"></div>
     </div>
 
+    {% if chat_enabled %}
+    {% include 'components/chatbot.html' %}
+    {% endif %}
+
     <script>
         function removeFilter(filter) {
             const url = new URL(window.location.href);
@@ -288,6 +293,10 @@
             window.addEventListener("scroll", handleScroll);
         });
     </script>
+
+    {% if chat_enabled %}
+    <script src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
+    {% endif %}
 </body>
 </html>
 

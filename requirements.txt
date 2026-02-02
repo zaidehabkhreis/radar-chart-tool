@@ -10,3 +10,4 @@ google-auth-oauthlib
 google-cloud-storage
 google-cloud-core
 flask_caching
+google-generativeai
