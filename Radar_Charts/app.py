@@ -17,11 +17,23 @@ from .services import AuthService, DataService, ChatService
 # --------------------------------------------------------------------------------------
 app = Flask(__name__)
 
-# Initialize services
-credentials = Config.get_credentials()
-auth_service = AuthService()
-data_service = DataService(credentials)
-chat_service = ChatService(data_service)
+# Services are lazily initialized on first request
+auth_service = None
+data_service = None
+chat_service = None
+_services_initialized = False
+
+
+def _initialize_services():
+    """Initialize services on first request (lazy loading)."""
+    global auth_service, data_service, chat_service, _services_initialized
+    if _services_initialized:
+        return
+    credentials = Config.get_credentials()
+    auth_service = AuthService()
+    data_service = DataService(credentials)
+    chat_service = ChatService(data_service)
+    _services_initialized = True
 
 # Filter regex pattern
 FILTER_REGEX = re.compile(r'^Pillar:\s*(.+)\s+(>|<|=|>=|<=)\s+([0-9.]+)$', re.IGNORECASE)
@@ -94,7 +106,8 @@ def _evaluate_filter(score, operator, value):
 # --------------------------------------------------------------------------------------
 @app.before_request
 def check_for_updates():
-    """Check for data updates before each request."""
+    """Initialize services and check for data updates before each request."""
+    _initialize_services()
     data_service.fetch_if_updated()
 
 
