@@ -16,7 +16,7 @@ class Config:
     #DRIVE_FILE_ID = "1PpMb1EcjN_YUj3dtWDY5_oJphov6Q1Dc"
     DRIVE_FILE_ID = "16JpSAnF6i0n0xNpO1jREGzxPueZHitgT"
     # Google Cloud Storage settings
-    BUCKET_NAME = "new-radar-chart-users2"
+    BUCKET_NAME = "new-radar-chart-users3"
     USERS_FILE_NAME = "users.json"
 
     # Data refresh interval (seconds)
