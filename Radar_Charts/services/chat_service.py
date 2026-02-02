@@ -37,7 +37,7 @@ Available employee data is provided below. Only use this data to answer question
                 Config.GEMINI_MODEL,
                 generation_config=genai.GenerationConfig(
                     temperature=0.7,
-                    max_output_tokens=1024,
+                    max_output_tokens=4096,
                 )
             )
 

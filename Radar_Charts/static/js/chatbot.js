@@ -15,8 +15,31 @@ class ChatBot {
         this.chatHistory = [];
         this.isOpen = false;
         this.isLoading = false;
+        this.storageKey = 'chatbot_history';
 
+        this.loadHistory();
         this.init();
+    }
+
+    loadHistory() {
+        try {
+            const saved = localStorage.getItem(this.storageKey);
+            if (saved) {
+                this.chatHistory = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.warn('Could not load chat history:', e);
+        }
+    }
+
+    saveHistory() {
+        try {
+            // Keep only last 20 messages to avoid storage limits
+            const toSave = this.chatHistory.slice(-20);
+            localStorage.setItem(this.storageKey, JSON.stringify(toSave));
+        } catch (e) {
+            console.warn('Could not save chat history:', e);
+        }
     }
 
     init() {
@@ -50,11 +73,24 @@ class ChatBot {
 
         if (this.isOpen) {
             this.input.focus();
-            // Show welcome message if no history
+            // Show welcome message if no history, otherwise restore messages
             if (this.chatHistory.length === 0) {
                 this.showWelcome();
+            } else if (this.messagesContainer.children.length === 0) {
+                // Restore messages from history if container is empty
+                this.restoreMessages();
             }
         }
+    }
+
+    restoreMessages() {
+        // Hide suggestions since we have history
+        this.suggestionsContainer.style.display = 'none';
+
+        // Restore all messages from history
+        this.chatHistory.forEach(msg => {
+            this.addMessage(msg.content, msg.role === 'user' ? 'user' : 'assistant', false);
+        });
     }
 
     showWelcome() {
@@ -81,6 +117,7 @@ class ChatBot {
         // Add user message
         this.addMessage(message, 'user');
         this.chatHistory.push({ role: 'user', content: message });
+        this.saveHistory();
 
         // Clear input
         this.input.value = '';
@@ -112,6 +149,7 @@ class ChatBot {
             } else {
                 this.addMessage(data.answer, 'assistant');
                 this.chatHistory.push({ role: 'assistant', content: data.answer });
+                this.saveHistory();
             }
         } catch (error) {
             this.hideTyping();
@@ -123,7 +161,7 @@ class ChatBot {
         }
     }
 
-    addMessage(content, type) {
+    addMessage(content, type, shouldScroll = true) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `chat-message ${type}`;
 
@@ -132,7 +170,9 @@ class ChatBot {
         messageDiv.innerHTML = formattedContent;
 
         this.messagesContainer.appendChild(messageDiv);
-        this.scrollToBottom();
+        if (shouldScroll) {
+            this.scrollToBottom();
+        }
     }
 
     formatMessage(content) {
