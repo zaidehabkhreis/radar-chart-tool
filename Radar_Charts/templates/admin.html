@@ -3,147 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - User Management</title>
+    <title>User Management - Skills Radar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/devoteam_logo.png') }}">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            overflow: hidden;
+        .admin-wrapper {
+            min-height: 100vh;
+            padding: 40px 20px;
         }
-
         .admin-container {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .admin-header {
             text-align: center;
-            width: 500px;
-            max-height: 90vh;
-            overflow-y: auto; /* Enables scrolling if needed */
-            overflow-x: hidden;
+            margin-bottom: 32px;
         }
-
-        h2 {
-            margin-bottom: 15px;
-            font-size: 22px;
-            color: #333;
+        .admin-header img {
+            height: 40px;
+            margin-bottom: 16px;
         }
-
-        input, button {
-            width: 100%;
-            padding: 10px;
-            margin: 5px 0;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
+        .admin-header h1 {
+            font-size: 24px;
+            color: var(--devoteam-gray);
+            margin: 0 0 8px 0;
         }
-
-        button {
-            background: #007bff;
-            color: white;
-            border: none;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #0056b3;
-        }
-
-        .user-list {
-            margin-top: 15px;
-            text-align: left;
-        }
-
-        .user-box {
-            background: #ffffff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            margin-bottom: 10px;
-            text-align: center;
-        }
-
-        .user-box label {
-            font-weight: bold;
-            display: block;
-            margin-bottom: 5px;
-            color: #333;
-        }
-
-        .user-box input {
-            width: calc(100% - 20px);
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-
-        .button-group {
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .update-btn {
-            background: #007bff;
-            width: 48%;
-        }
-
-        .remove-btn {
-            background: red;
-            width: 48%;
-        }
-
-        .remove-btn:hover {
-            background: darkred;
-        }
-
-        .back-link {
-            display: block;
-            margin-top: 15px;
-            text-align: center;
-            color: #007bff;
-            text-decoration: none;
-            font-weight: bold;
+        .admin-header p {
+            color: var(--devoteam-gray-light);
+            margin: 0;
         }
     </style>
 </head>
-<body>
+<body class="admin-wrapper">
     <div class="admin-container">
-        <h2>Admin Panel - User Management</h2>
+        <div class="admin-header">
+            <img src="{{ url_for('static', filename='img/devoteam_logo.png') }}" alt="Devoteam">
+            <h1>User Management</h1>
+            <p>Add, edit, or remove user accounts</p>
+        </div>
 
-        <form method="POST">
-            <input type="email" name="email" placeholder="User Email" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <button type="submit" name="action" value="add">Add User</button>
-        </form>
-
-        <div class="user-list">
-            <h3>Registered Users</h3>
-            {% for email in users %}
-                <div class="user-box">
-                    <label>{{ email }}</label>
-                    <form method="POST">
-                        <input type="hidden" name="email" value="{{ email }}">
-                        <input type="password" name="password" placeholder="New Password">
-                        <div class="button-group">
-                            <button type="submit" class="update-btn" name="action" value="edit">Update</button>
-                            {% if email != user %}
-                                <button type="submit" class="remove-btn" name="action" value="remove">Remove</button>
-                            {% endif %}
-                        </div>
-                    </form>
+        <!-- Add User Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-user-plus" style="color: var(--devoteam-coral); margin-right: 8px;"></i> Add New User</h3>
+            </div>
+            <form method="POST">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <input type="email" name="email" placeholder="Email address" required style="flex: 1; min-width: 200px;">
+                    <input type="password" name="password" placeholder="Password" required style="flex: 1; min-width: 150px;">
+                    <button type="submit" name="action" value="add" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add User
+                    </button>
                 </div>
+            </form>
+        </div>
+
+        <!-- User List Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-users" style="color: var(--devoteam-coral); margin-right: 8px;"></i> Registered Users</h3>
+                <span style="color: var(--devoteam-gray-light); font-size: 14px;">{{ users|length }} users</span>
+            </div>
+
+            {% for email in users %}
+            <div class="user-item">
+                <div class="user-email">
+                    <i class="fas fa-envelope" style="color: var(--devoteam-coral); margin-right: 8px;"></i>
+                    {{ email }}
+                    {% if email == user %}
+                    <span style="background: var(--devoteam-coral); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 8px;">You</span>
+                    {% endif %}
+                </div>
+                <form method="POST">
+                    <input type="hidden" name="email" value="{{ email }}">
+                    <div class="user-actions">
+                        <input type="password" name="password" placeholder="New password">
+                        <button type="submit" name="action" value="edit" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-save"></i> Update
+                        </button>
+                        {% if email != user %}
+                        <button type="submit" name="action" value="remove" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to remove this user?')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
             {% endfor %}
         </div>
 
-        <a href="{{ url_for('index') }}" class="back-link">Back to Dashboard</a>
+        <!-- Back Link -->
+        <div style="text-align: center; margin-top: 24px;">
+            <a href="{{ url_for('index') }}" class="btn btn-outline">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
     </div>
 </body>
 </html>

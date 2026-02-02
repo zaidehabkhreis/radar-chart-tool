@@ -422,21 +422,8 @@ def load_one_chart():
     sheet_name = sheets[offset]
     df = data_service.data_dict[sheet_name]
 
-    # Build snippet HTML
-    snippet = f"""
-    <iframe src="{url_for('generate_chart', sheet_name=sheet_name)}"
-            frameborder="0"
-            onload="iframeLoaded(this)"
-            style="width:100%; height:450px; display:none;">
-    </iframe>
-    <p>{sheet_name}</p>
-    <button onclick="openPopup('{sheet_name}')">Show Engagements</button>
-    <div id="popup-{sheet_name}" class="popup">
-        <span class="close-btn" onclick="closePopup('{sheet_name}')">×</span>
-        <div class="popup-title">Engagements for {sheet_name}</div>
-        <ul>
-    """
-
+    # Build engagements list
+    engagements_html = ""
     if df is not None and 'Engagements' in df.columns and not df['Engagements'].isnull().all():
         all_engagements = set()
         for e_list in df['Engagements']:
@@ -444,9 +431,34 @@ def load_one_chart():
                 for eng in e_list.split(','):
                     all_engagements.add(eng.strip())
         for eng in sorted(all_engagements):
-            snippet += f"<li>{eng}</li>"
+            engagements_html += f"<li>{eng}</li>"
 
-    snippet += "</ul></div>"
+    # Build styled snippet HTML
+    snippet = f"""
+    <div class="chart-content">
+        <iframe src="{url_for('generate_chart', sheet_name=sheet_name)}"
+                frameborder="0"
+                onload="iframeLoaded(this)"
+                style="width:100%; height:380px; display:none; border-radius: 8px;">
+        </iframe>
+    </div>
+    <div class="chart-footer">
+        <span class="chart-name">{sheet_name}</span>
+        <button class="btn btn-outline btn-sm" onclick="openPopup('{sheet_name}')">
+            <i class="fas fa-briefcase"></i> Engagements
+        </button>
+    </div>
+    <div id="popup-{sheet_name}" class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Engagements</h3>
+            <button class="modal-close" onclick="closePopup('{sheet_name}')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin: 0 0 16px 0; color: #6B6B6B; font-size: 14px;">Projects for <strong>{sheet_name}</strong></p>
+            <ul>{engagements_html if engagements_html else '<li style="color: #999;">No engagements listed</li>'}</ul>
+        </div>
+    </div>
+    """
     return snippet
 
 
