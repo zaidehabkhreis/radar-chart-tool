@@ -2,6 +2,7 @@
 Authentication service for user management.
 """
 import json
+from typing import Optional
 from google.cloud import storage
 from ..config import Config
 
@@ -42,7 +43,7 @@ class AuthService:
         """Validate user credentials."""
         return email in self.users_cache and self.users_cache[email] == password
 
-    def get_authenticated_user(self, request) -> str | None:
+    def get_authenticated_user(self, request) -> Optional[str]:
         """Get authenticated user from request cookies."""
         email = request.cookies.get("user_email")
         password = request.cookies.get("user_password")
