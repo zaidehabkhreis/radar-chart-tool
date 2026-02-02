@@ -23,7 +23,7 @@ class Config:
     CHECK_INTERVAL = 10
 
     # Gemini settings
-    GEMINI_MODEL = "gemini-1.5-flash"
+    GEMINI_MODEL = "gemini-2.5-flash"
 
     @staticmethod
     def get_credentials():
