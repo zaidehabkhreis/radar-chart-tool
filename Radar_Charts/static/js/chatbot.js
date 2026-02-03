@@ -4,7 +4,7 @@
  */
 
 class ChatBot {
-    constructor() {
+    constructor(userEmail) {
         this.container = document.getElementById('chat-container');
         this.toggleBtn = document.getElementById('chat-toggle-btn');
         this.messagesContainer = document.getElementById('chat-messages');
@@ -15,10 +15,22 @@ class ChatBot {
         this.chatHistory = [];
         this.isOpen = false;
         this.isLoading = false;
-        this.storageKey = 'chatbot_history';
+        // User-specific storage key
+        this.userEmail = userEmail || 'anonymous';
+        this.storageKey = `chatbot_history_${this.userEmail}`;
 
         this.loadHistory();
         this.init();
+    }
+
+    // Static method to clear chat history for logout
+    static clearHistory(userEmail) {
+        const key = `chatbot_history_${userEmail}`;
+        try {
+            localStorage.removeItem(key);
+        } catch (e) {
+            console.warn('Could not clear chat history:', e);
+        }
     }
 
     loadHistory() {
@@ -214,6 +226,8 @@ class ChatBot {
 }
 
 // Initialize chatbot when DOM is ready
+// The userEmail should be set in a script tag before this file loads
 document.addEventListener('DOMContentLoaded', () => {
-    window.chatBot = new ChatBot();
+    const userEmail = window.chatbotUserEmail || 'anonymous';
+    window.chatBot = new ChatBot(userEmail);
 });

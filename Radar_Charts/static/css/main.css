@@ -72,7 +72,7 @@ body {
 }
 
 .logo {
-    height: 36px;
+    height: 44px;
     width: auto;
 }
 
@@ -239,6 +239,7 @@ body {
     flex-wrap: wrap;
     gap: 16px;
     align-items: flex-end;
+    justify-content: center;
 }
 
 .filter-group {
@@ -346,6 +347,7 @@ select {
     display: flex;
     gap: 12px;
     margin-top: 16px;
+    justify-content: center;
 }
 
 .search-input-wrapper {
@@ -452,7 +454,7 @@ select {
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
-    z-index: 1000;
+    z-index: 2000;
     animation: fadeIn 0.2s ease;
 }
 
@@ -464,12 +466,12 @@ select {
     transform: translate(-50%, -50%);
     background: var(--white);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     width: 90%;
     max-width: 480px;
     max-height: 80vh;
     overflow: hidden;
-    z-index: 1001;
+    z-index: 2001;
     animation: slideUp 0.3s ease;
 }
 
@@ -640,15 +642,18 @@ select {
 }
 
 .login-header {
-    padding: 32px 32px 24px;
+    padding: 40px 32px 28px;
     text-align: center;
     background: linear-gradient(135deg, var(--devoteam-coral) 0%, var(--devoteam-coral-dark) 100%);
 }
 
 .login-header img {
-    height: 40px;
-    margin-bottom: 16px;
-    filter: brightness(0) invert(1);
+    height: 56px;
+    margin-bottom: 20px;
+    /* No filter - show original logo colors with white background circle */
+    background: white;
+    padding: 12px 20px;
+    border-radius: 12px;
 }
 
 .login-header h2 {

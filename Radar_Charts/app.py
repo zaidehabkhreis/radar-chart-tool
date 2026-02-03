@@ -137,7 +137,31 @@ def login():
 @app.route('/logout')
 def logout():
     """Handle user logout."""
-    resp = make_response(redirect(url_for('login')))
+    user_email = request.cookies.get("user_email", "")
+    # Return a page that clears localStorage and then redirects
+    logout_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Logging out...</title>
+        <link rel="stylesheet" href="{url_for('static', filename='css/main.css')}">
+    </head>
+    <body class="login-wrapper">
+        <div style="text-align: center; color: #666;">
+            <p>Logging out...</p>
+        </div>
+        <script>
+            // Clear user-specific chat history
+            try {{
+                localStorage.removeItem('chatbot_history_{user_email}');
+            }} catch(e) {{}}
+            // Redirect to login
+            window.location.href = '{url_for("login")}';
+        </script>
+    </body>
+    </html>
+    """
+    resp = make_response(logout_html)
     resp.delete_cookie("user_email")
     resp.delete_cookie("user_password")
     return resp
@@ -297,10 +321,11 @@ def generate_chart(sheet_name):
 
     fig.update_layout(
         polar=dict(
-            radialaxis=dict(visible=True, range=[0, 10], tickfont=dict(size=6.5)),
-            angularaxis=dict(tickfont=dict(size=9))
+            radialaxis=dict(visible=True, range=[0, 10], tickfont=dict(size=8)),
+            angularaxis=dict(tickfont=dict(size=10))
         ),
-        showlegend=False
+        showlegend=False,
+        margin=dict(t=40, b=100, l=60, r=60)
     )
 
     return fig.to_html(full_html=False)
@@ -363,15 +388,15 @@ def _add_capacity_utilization(fig, df):
 
     # Capacity annotation and bar
     fig.add_annotation(
-        x=0.14, y=-0.18,
+        x=0.12, y=-0.08,
         text=f"Capacity: {cap_val}%",
         showarrow=False,
-        font=dict(color=cap_col, size=12),
+        font=dict(color=cap_col, size=13, family="Arial, sans-serif"),
         xref="paper", yref="paper"
     )
     fig.add_shape(
         type="rect",
-        x0=0.35, x1=0.85, y0=-0.18, y1=-0.14,
+        x0=0.32, x1=0.88, y0=-0.10, y1=-0.05,
         fillcolor=cap_col,
         line=dict(width=0),
         xref="paper", yref="paper"
@@ -379,15 +404,15 @@ def _add_capacity_utilization(fig, df):
 
     # Utilization annotation and bar
     fig.add_annotation(
-        x=0.14, y=-0.25,
+        x=0.12, y=-0.18,
         text=f"Utilization: {util_val}%",
         showarrow=False,
-        font=dict(color=util_col, size=12),
+        font=dict(color=util_col, size=13, family="Arial, sans-serif"),
         xref="paper", yref="paper"
     )
     fig.add_shape(
         type="rect",
-        x0=0.35, x1=0.85, y0=-0.25, y1=-0.21,
+        x0=0.32, x1=0.88, y0=-0.20, y1=-0.15,
         fillcolor=util_col,
         line=dict(width=0),
         xref="paper", yref="paper"
@@ -439,7 +464,7 @@ def load_one_chart():
         <iframe src="{url_for('generate_chart', sheet_name=sheet_name)}"
                 frameborder="0"
                 onload="iframeLoaded(this)"
-                style="width:100%; height:380px; display:none; border-radius: 8px;">
+                style="width:100%; height:480px; display:none; border-radius: 8px;">
         </iframe>
     </div>
     <div class="chart-footer">

@@ -35,3 +35,6 @@ build/
 
 # Byte-compiled files
 *.pyc
+
+# Claude Code
+.claude/

@@ -276,6 +276,10 @@
     </script>
 
     {% if chat_enabled %}
+    <script>
+        // Set user email for chatbot isolation
+        window.chatbotUserEmail = "{{ user }}";
+    </script>
     <script src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
     {% endif %}
 </body>
