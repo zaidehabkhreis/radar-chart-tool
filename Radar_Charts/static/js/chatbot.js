@@ -85,12 +85,14 @@ class ChatBot {
 
         if (this.isOpen) {
             this.input.focus();
-            // Show welcome message if no history, otherwise restore messages
-            if (this.chatHistory.length === 0) {
-                this.showWelcome();
-            } else if (this.messagesContainer.children.length === 0) {
-                // Restore messages from history if container is empty
-                this.restoreMessages();
+            // Only add content if messages container is empty
+            if (this.messagesContainer.children.length === 0) {
+                if (this.chatHistory.length === 0) {
+                    this.showWelcome();
+                } else {
+                    // Restore messages from history
+                    this.restoreMessages();
+                }
             }
         }
     }
