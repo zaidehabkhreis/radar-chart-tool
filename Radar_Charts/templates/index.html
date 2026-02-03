@@ -128,19 +128,38 @@
             window.location.href = url.toString();
         }
 
-        function openPopup(sheetName) {
-            document.getElementById('popup-' + sheetName).style.display = 'block';
-            document.getElementById('modal-overlay').style.display = 'block';
-        }
-
-        function closePopup(sheetName) {
-            document.getElementById('popup-' + sheetName).style.display = 'none';
-            document.getElementById('modal-overlay').style.display = 'none';
-        }
-
-        function closeAllModals() {
+        function openPopup(sheetName, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            // Close any other open modals first
             document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-            document.getElementById('modal-overlay').style.display = 'none';
+            // Open the requested modal
+            const modal = document.getElementById('popup-' + sheetName);
+            const overlay = document.getElementById('modal-overlay');
+            if (modal && overlay) {
+                overlay.style.display = 'block';
+                modal.style.display = 'block';
+            }
+        }
+
+        function closePopup(sheetName, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            const modal = document.getElementById('popup-' + sheetName);
+            const overlay = document.getElementById('modal-overlay');
+            if (modal) modal.style.display = 'none';
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        function closeAllModals(event) {
+            if (event) event.stopPropagation();
+            document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+            const overlay = document.getElementById('modal-overlay');
+            if (overlay) overlay.style.display = 'none';
         }
 
         function iframeLoaded(iframeElem) {

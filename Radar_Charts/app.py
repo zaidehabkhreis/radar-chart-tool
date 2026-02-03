@@ -469,14 +469,14 @@ def load_one_chart():
     </div>
     <div class="chart-footer">
         <span class="chart-name">{sheet_name}</span>
-        <button class="btn btn-outline btn-sm" onclick="openPopup('{sheet_name}')">
+        <button class="btn btn-outline btn-sm" onclick="openPopup('{sheet_name}', event)">
             <i class="fas fa-briefcase"></i> Engagements
         </button>
     </div>
-    <div id="popup-{sheet_name}" class="modal">
+    <div id="popup-{sheet_name}" class="modal" onclick="event.stopPropagation()">
         <div class="modal-header">
             <h3 class="modal-title">Engagements</h3>
-            <button class="modal-close" onclick="closePopup('{sheet_name}')">&times;</button>
+            <button class="modal-close" onclick="closePopup('{sheet_name}', event)">&times;</button>
         </div>
         <div class="modal-body">
             <p style="margin: 0 0 16px 0; color: #6B6B6B; font-size: 14px;">Projects for <strong>{sheet_name}</strong></p>
