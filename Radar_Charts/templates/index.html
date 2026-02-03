@@ -107,7 +107,7 @@
     </main>
 
     <!-- Modal Overlay -->
-    <div id="modal-overlay" class="modal-overlay" onclick="closeAllModals()"></div>
+    <div id="modal-overlay" class="modal-overlay" onclick="closeAllModals(event)"></div>
 
     {% if chat_enabled %}
     {% include 'components/chatbot.html' %}
@@ -156,7 +156,10 @@
         }
 
         function closeAllModals(event) {
-            if (event) event.stopPropagation();
+            // Only close if clicking directly on overlay, not on modal content
+            if (event && event.target && event.target.id !== 'modal-overlay') {
+                return;
+            }
             document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
             const overlay = document.getElementById('modal-overlay');
             if (overlay) overlay.style.display = 'none';

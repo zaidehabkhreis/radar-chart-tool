@@ -72,7 +72,7 @@ body {
 }
 
 .logo {
-    height: 44px;
+    height: 52px;
     width: auto;
 }
 
@@ -385,12 +385,11 @@ select {
     background: var(--white);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
-    overflow: hidden;
-    transition: var(--transition);
+    overflow: visible;
+    transition: box-shadow 0.25s ease;
 }
 
 .chart-card:hover {
-    transform: translateY(-4px);
     box-shadow: var(--shadow-lg);
 }
 
@@ -472,7 +471,6 @@ select {
     max-height: 80vh;
     overflow: hidden;
     z-index: 2001;
-    animation: slideUp 0.3s ease;
 }
 
 .modal-header {
@@ -648,11 +646,12 @@ select {
 }
 
 .login-header img {
-    height: 48px;
-    margin-bottom: 24px;
+    height: 80px;
+    width: auto;
+    margin-bottom: 28px;
     /* Display on white rounded card for elegance */
     background: white;
-    padding: 20px 32px;
+    padding: 24px 40px;
     border-radius: 16px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }

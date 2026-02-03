@@ -325,7 +325,7 @@ def generate_chart(sheet_name):
             angularaxis=dict(tickfont=dict(size=10))
         ),
         showlegend=False,
-        margin=dict(t=40, b=100, l=60, r=60)
+        margin=dict(t=30, b=120, l=50, r=50)
     )
 
     return fig.to_html(full_html=False)
@@ -386,9 +386,9 @@ def _add_capacity_utilization(fig, df):
     cap_col = capacity_color(cap_val)
     util_col = utilization_color(util_val)
 
-    # Capacity annotation and bar
+    # Capacity annotation and bar - positioned lower with more space from chart
     fig.add_annotation(
-        x=0.12, y=-0.08,
+        x=0.12, y=-0.15,
         text=f"Capacity: {cap_val}%",
         showarrow=False,
         font=dict(color=cap_col, size=13, family="Arial, sans-serif"),
@@ -396,7 +396,7 @@ def _add_capacity_utilization(fig, df):
     )
     fig.add_shape(
         type="rect",
-        x0=0.32, x1=0.88, y0=-0.10, y1=-0.05,
+        x0=0.32, x1=0.88, y0=-0.17, y1=-0.12,
         fillcolor=cap_col,
         line=dict(width=0),
         xref="paper", yref="paper"
@@ -404,7 +404,7 @@ def _add_capacity_utilization(fig, df):
 
     # Utilization annotation and bar
     fig.add_annotation(
-        x=0.12, y=-0.18,
+        x=0.12, y=-0.26,
         text=f"Utilization: {util_val}%",
         showarrow=False,
         font=dict(color=util_col, size=13, family="Arial, sans-serif"),
@@ -412,7 +412,7 @@ def _add_capacity_utilization(fig, df):
     )
     fig.add_shape(
         type="rect",
-        x0=0.32, x1=0.88, y0=-0.20, y1=-0.15,
+        x0=0.32, x1=0.88, y0=-0.28, y1=-0.23,
         fillcolor=util_col,
         line=dict(width=0),
         xref="paper", yref="paper"
