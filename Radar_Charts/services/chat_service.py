@@ -77,7 +77,7 @@ Available employee data is provided below. Only use this data to answer question
 
             # Add chat history
             if chat_history:
-                for msg in chat_history[-10:]:  # Keep last 10 messages for context
+                for msg in chat_history[-5:]:  # Keep last 5 messages for context
                     role = "user" if msg["role"] == "user" else "model"
                     messages.append({"role": role, "parts": [msg["content"]]})
 
