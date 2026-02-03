@@ -190,32 +190,32 @@ class ChatBot {
     }
 
     formatMessage(content) {
-        // Remove markdown table formatting (convert to simple list)
+        // Clean up any weird colon-prefixed names (: Name -> **Name**)
+        content = content.replace(/^:\s*(\w+)\s*$/gm, '**$1**');
+
+        // Remove markdown table formatting
         content = content.replace(/^\|[\s\-:]+\|[\s\-:]*\|?.*$/gm, '');
         content = content.replace(/^\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]*)\s*\|?$/gm, (match, col1, col2, col3) => {
             col1 = col1.trim();
             col2 = col2.trim();
             col3 = col3 ? col3.trim() : '';
             if (col1 && col2) {
-                return col3 ? `• **${col1}**: ${col2} (${col3})` : `• **${col1}**: ${col2}`;
+                return col3 ? `- **${col1}**: ${col2} (${col3})` : `- **${col1}**: ${col2}`;
             }
             return match;
         });
 
-        // Detect employee names (single word or name on its own line, followed by bullet points)
-        content = content.replace(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*\n\n?\*/gm, '<div class="employee-card"><div class="employee-name">$1</div>\n*');
+        // Convert **Name** on its own line to employee card
+        content = content.replace(/^\*\*([A-Za-z]+(?:\s+[A-Za-z]+)?)\*\*\s*$/gm, '<div class="employee-card"><div class="employee-name">$1</div>');
 
-        // Close employee cards before Summary or next employee
-        content = content.replace(/(<\/ul>)\s*\n*(<div class="employee-card">|Summary:|$)/g, '$1</div>\n$2');
+        // Close employee cards before next employee card or end
+        content = content.replace(/(<\/ul>)\s*\n*(<div class="employee-card">)/g, '$1</div>\n$2');
 
-        // Style Summary section
-        content = content.replace(/^(Summary:)/gm, '</div><div class="summary-section"><strong>$1</strong>');
-
-        // Convert **bold** to <strong>
+        // Convert **bold** to <strong> (for remaining bold text)
         content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
         // Convert bullet points with special styling for metrics
-        content = content.replace(/^[•\-\*]\s+(Generative AI|AI and Machine Learning|GCP Skills|Technical Skills|Capacity|Utilization|Justification|[A-Za-z\s]+):?\s*(.+)$/gm, (match, label, value) => {
+        content = content.replace(/^[\-\*]\s+(Generative AI|AI and Machine Learning|GCP Skills|Technical Skills|Capacity|Utilization|Justification|[A-Za-z\s]+):?\s*(.+)$/gm, (match, label, value) => {
             label = label.trim();
             value = value.trim();
             if (label === 'Justification') {
@@ -225,7 +225,7 @@ class ChatBot {
         });
 
         // Convert remaining bullet points
-        content = content.replace(/^[•\-\*]\s+(.+)$/gm, '<li>$1</li>');
+        content = content.replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>');
 
         // Wrap consecutive <li> in <ul>
         content = content.replace(/(<li[^>]*>.*<\/li>\n?)+/g, (match) => `<ul class="metrics-list">${match}</ul>`);
@@ -238,6 +238,14 @@ class ChatBot {
         content = content.replace(/<br><br><br>/g, '<br><br>');
         content = content.replace(/<\/div><br><br>/g, '</div>');
         content = content.replace(/<br><div/g, '<div');
+        content = content.replace(/<div class="employee-card"><br>/g, '<div class="employee-card">');
+
+        // Close any unclosed employee cards at the end
+        const openCards = (content.match(/<div class="employee-card">/g) || []).length;
+        const closedCards = (content.match(/<\/div>\s*(?=<div class="employee-card">|$)/g) || []).length;
+        if (openCards > closedCards) {
+            content += '</div>'.repeat(openCards - closedCards);
+        }
 
         return content;
     }
