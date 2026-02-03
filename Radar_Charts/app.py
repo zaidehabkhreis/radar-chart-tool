@@ -316,8 +316,7 @@ def generate_chart(sheet_name):
         text=hover_data
     ))
 
-    # Add capacity/utilization annotations
-    _add_capacity_utilization(fig, df)
+    # Capacity/utilization bars are now rendered as HTML in the snippet
 
     fig.update_layout(
         polar=dict(
@@ -325,7 +324,7 @@ def generate_chart(sheet_name):
             angularaxis=dict(tickfont=dict(size=10))
         ),
         showlegend=False,
-        margin=dict(t=30, b=120, l=50, r=50)
+        margin=dict(t=30, b=30, l=50, r=50)
     )
 
     return fig.to_html(full_html=False)
@@ -447,6 +446,38 @@ def load_one_chart():
     sheet_name = sheets[offset]
     df = data_service.data_dict[sheet_name]
 
+    # Get capacity and utilization values
+    def safe_int(x):
+        try:
+            return int(round(x))
+        except:
+            return 0
+
+    cap_val = safe_int(df.loc[0, 'Capacity'] * 100 if 'Capacity' in df.columns and not df.empty else 0)
+    util_val = safe_int(df.loc[0, 'Utilization'] * 100 if 'Utilization' in df.columns and not df.empty else 0)
+
+    # Color functions
+    def capacity_color(c):
+        if c <= 50:
+            return '#22C55E'  # Green
+        elif c <= 80:
+            return '#F59E0B'  # Amber
+        elif c <= 95:
+            return '#F97316'  # Orange
+        return '#EF4444'  # Red
+
+    def utilization_color(u):
+        if u <= 50:
+            return '#EF4444'  # Red
+        elif u <= 80:
+            return '#F97316'  # Orange
+        elif u <= 95:
+            return '#F59E0B'  # Amber
+        return '#22C55E'  # Green
+
+    cap_color = capacity_color(cap_val)
+    util_color = utilization_color(util_val)
+
     # Build engagements list
     engagements_html = ""
     if df is not None and 'Engagements' in df.columns and not df['Engagements'].isnull().all():
@@ -458,14 +489,30 @@ def load_one_chart():
         for eng in sorted(all_engagements):
             engagements_html += f"<li>{eng}</li>"
 
-    # Build styled snippet HTML
+    # Build styled snippet HTML with progress bars
     snippet = f"""
     <div class="chart-content">
         <iframe src="{url_for('generate_chart', sheet_name=sheet_name)}"
                 frameborder="0"
                 onload="iframeLoaded(this)"
-                style="width:100%; height:480px; display:none; border-radius: 8px;">
+                style="width:100%; height:400px; display:none; border-radius: 8px;">
         </iframe>
+        <div class="metrics-container">
+            <div class="metric-row">
+                <span class="metric-label">Capacity</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {cap_val}%; background: {cap_color};"></div>
+                </div>
+                <span class="metric-value" style="color: {cap_color};">{cap_val}%</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">Utilization</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {util_val}%; background: {util_color};"></div>
+                </div>
+                <span class="metric-value" style="color: {util_color};">{util_val}%</span>
+            </div>
+        </div>
     </div>
     <div class="chart-footer">
         <span class="chart-name">{sheet_name}</span>
