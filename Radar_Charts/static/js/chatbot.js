@@ -189,8 +189,7 @@ class ChatBot {
 
     formatMessage(content) {
         // Remove markdown table formatting (convert to simple list)
-        // Match table rows like "| Name | Score |" and convert to bullet points
-        content = content.replace(/^\|[\s\-:]+\|[\s\-:]*\|?.*$/gm, ''); // Remove separator rows
+        content = content.replace(/^\|[\s\-:]+\|[\s\-:]*\|?.*$/gm, '');
         content = content.replace(/^\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]*)\s*\|?$/gm, (match, col1, col2, col3) => {
             col1 = col1.trim();
             col2 = col2.trim();
@@ -201,23 +200,42 @@ class ChatBot {
             return match;
         });
 
+        // Detect employee names (single word or name on its own line, followed by bullet points)
+        content = content.replace(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*\n\n?\*/gm, '<div class="employee-card"><div class="employee-name">$1</div>\n*');
+
+        // Close employee cards before Summary or next employee
+        content = content.replace(/(<\/ul>)\s*\n*(<div class="employee-card">|Summary:|$)/g, '$1</div>\n$2');
+
+        // Style Summary section
+        content = content.replace(/^(Summary:)/gm, '</div><div class="summary-section"><strong>$1</strong>');
+
         // Convert **bold** to <strong>
         content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-        // Convert bullet points (• or - or *)
+        // Convert bullet points with special styling for metrics
+        content = content.replace(/^[•\-\*]\s+(Generative AI|AI and Machine Learning|GCP Skills|Technical Skills|Capacity|Utilization|Justification|[A-Za-z\s]+):?\s*(.+)$/gm, (match, label, value) => {
+            label = label.trim();
+            value = value.trim();
+            if (label === 'Justification') {
+                return `<li class="justification"><span class="metric-label">${label}:</span> ${value}</li>`;
+            }
+            return `<li><span class="metric-label">${label}:</span> <span class="metric-val">${value}</span></li>`;
+        });
+
+        // Convert remaining bullet points
         content = content.replace(/^[•\-\*]\s+(.+)$/gm, '<li>$1</li>');
 
         // Wrap consecutive <li> in <ul>
-        content = content.replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`);
+        content = content.replace(/(<li[^>]*>.*<\/li>\n?)+/g, (match) => `<ul class="metrics-list">${match}</ul>`);
 
         // Convert line breaks
         content = content.replace(/\n/g, '<br>');
 
-        // Clean up double <br> after </ul>
+        // Clean up
         content = content.replace(/<\/ul><br>/g, '</ul>');
-
-        // Clean up empty lines
         content = content.replace(/<br><br><br>/g, '<br><br>');
+        content = content.replace(/<\/div><br><br>/g, '</div>');
+        content = content.replace(/<br><div/g, '<div');
 
         return content;
     }

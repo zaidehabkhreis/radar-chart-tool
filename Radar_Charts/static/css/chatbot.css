@@ -23,14 +23,23 @@
     box-shadow: 0 6px 28px rgba(232, 76, 96, 0.5);
 }
 
-.chat-toggle-btn svg {
-    width: 28px;
-    height: 28px;
-    fill: white;
+.chat-toggle-btn svg,
+.chat-toggle-btn img {
+    width: 32px;
+    height: 32px;
     transition: transform 0.3s ease;
 }
 
-.chat-toggle-btn:hover svg {
+.chat-toggle-btn svg {
+    fill: white;
+}
+
+.chat-toggle-btn img {
+    border-radius: 50%;
+}
+
+.chat-toggle-btn:hover svg,
+.chat-toggle-btn:hover img {
     transform: scale(1.1);
 }
 
@@ -97,18 +106,24 @@
 .chat-header-icon {
     width: 44px;
     height: 44px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.95);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(10px);
+    overflow: hidden;
 }
 
 .chat-header-icon svg {
     width: 24px;
     height: 24px;
     fill: white;
+}
+
+.chat-header-icon img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
 }
 
 .chat-header-text h3 {
@@ -186,6 +201,67 @@
 .chat-message.assistant strong {
     color: #E84C60;
     font-weight: 600;
+}
+
+/* Enhanced Employee Cards */
+.chat-message.assistant .employee-card {
+    background: #F8F9FA;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 10px 0;
+    border-left: 3px solid #E84C60;
+}
+
+.chat-message.assistant .employee-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: #E84C60;
+    margin-bottom: 8px;
+    text-transform: capitalize;
+}
+
+.chat-message.assistant .metrics-list {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+.chat-message.assistant .metrics-list li {
+    margin: 4px 0;
+    font-size: 13px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.chat-message.assistant .metric-label {
+    font-weight: 600;
+    color: #6B6B6B;
+}
+
+.chat-message.assistant .metric-val {
+    color: #3D3D3D;
+}
+
+.chat-message.assistant .justification {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #DDD;
+    font-style: italic;
+    display: block;
+}
+
+.chat-message.assistant .summary-section {
+    background: linear-gradient(135deg, rgba(232, 76, 96, 0.08) 0%, rgba(232, 76, 96, 0.03) 100%);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 12px;
+    border: 1px solid rgba(232, 76, 96, 0.15);
+}
+
+.chat-message.assistant .summary-section strong {
+    display: block;
+    margin-bottom: 6px;
 }
 
 /* Typing Indicator */
