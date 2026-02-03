@@ -479,7 +479,7 @@ def load_one_chart():
             <button class="modal-close" onclick="closePopup('{sheet_name}', event)">&times;</button>
         </div>
         <div class="modal-body">
-            <p style="margin: 0 0 16px 0; color: #6B6B6B; font-size: 14px;">Projects for <strong>{sheet_name}</strong></p>
+            <p style="margin: 0 0 16px 0; color: #6B6B6B; font-size: 14px;">Engagements for <strong>{sheet_name}</strong></p>
             <ul>{engagements_html if engagements_html else '<li style="color: #999;">No engagements listed</li>'}</ul>
         </div>
     </div>

@@ -18,7 +18,8 @@ Guidelines:
 - Lower capacity % means more available; higher utilization % means more actively engaged
 - Scores are out of 10 - consider 7+ as strong, 5-7 as moderate, below 5 as developing
 - If asked about skills not in the data, say so clearly
-- When comparing employees, create brief comparison tables when helpful
+- NEVER use markdown tables - use bullet points with employee names in bold instead
+- When comparing employees, list each employee with their scores as bullet points
 - End recommendations with a brief summary of why they're the best fit
 
 Available employee data is provided below. Only use this data to answer questions."""

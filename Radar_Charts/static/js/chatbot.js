@@ -188,10 +188,23 @@ class ChatBot {
     }
 
     formatMessage(content) {
+        // Remove markdown table formatting (convert to simple list)
+        // Match table rows like "| Name | Score |" and convert to bullet points
+        content = content.replace(/^\|[\s\-:]+\|[\s\-:]*\|?.*$/gm, ''); // Remove separator rows
+        content = content.replace(/^\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]*)\s*\|?$/gm, (match, col1, col2, col3) => {
+            col1 = col1.trim();
+            col2 = col2.trim();
+            col3 = col3 ? col3.trim() : '';
+            if (col1 && col2) {
+                return col3 ? `• **${col1}**: ${col2} (${col3})` : `• **${col1}**: ${col2}`;
+            }
+            return match;
+        });
+
         // Convert **bold** to <strong>
         content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-        // Convert bullet points
+        // Convert bullet points (• or - or *)
         content = content.replace(/^[•\-\*]\s+(.+)$/gm, '<li>$1</li>');
 
         // Wrap consecutive <li> in <ul>
@@ -202,6 +215,9 @@ class ChatBot {
 
         // Clean up double <br> after </ul>
         content = content.replace(/<\/ul><br>/g, '</ul>');
+
+        // Clean up empty lines
+        content = content.replace(/<br><br><br>/g, '<br><br>');
 
         return content;
     }
