@@ -375,9 +375,16 @@ select {
 
 /* Charts Grid */
 .charts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 24px;
+    justify-content: center;
+}
+
+.charts-grid .chart-card {
+    flex: 0 1 calc(50% - 12px);
+    min-width: 480px;
+    max-width: 600px;
 }
 
 /* Chart Card */
@@ -743,8 +750,10 @@ select {
         margin: 16px auto;
     }
 
-    .charts-grid {
-        grid-template-columns: 1fr;
+    .charts-grid .chart-card {
+        flex: 0 1 100%;
+        min-width: auto;
+        max-width: none;
     }
 
     .filter-row {
