@@ -113,6 +113,17 @@ class DataService:
         if 'Specific Skill' in df.columns:
             summary["specific_skills"] = df['Specific Skill'].tolist()
 
+        if 'Engagements' in df.columns and not df['Engagements'].isnull().all():
+            all_engagements = set()
+            for e_list in df['Engagements']:
+                if pd.notna(e_list):
+                    for eng in str(e_list).split(','):
+                        eng = eng.strip()
+                        if eng:
+                            all_engagements.add(eng)
+            if all_engagements:
+                summary["engagements"] = sorted(all_engagements)
+
         return summary
 
     def get_all_employees_summary(self) -> list:
@@ -153,6 +164,9 @@ class DataService:
 
             if emp.get('specific_skills'):
                 lines.append(f"Specific Skills: {', '.join(str(s) for s in emp['specific_skills'] if pd.notna(s))}")
+
+            if emp.get('engagements'):
+                lines.append(f"Current Engagements: {', '.join(emp['engagements'])}")
 
             context_lines.append("\n".join(lines))
 
